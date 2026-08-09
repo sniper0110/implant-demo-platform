@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { COLORS, EXPLODE_OFFSETS } from '../constants';
+import { COLORS } from '../constants';
 import { useSpineLayout } from '../SpineLayoutContext';
 
 interface InterbodyCageProps {
   variant: 'solid' | 'lattice';
   visible: boolean;
-  explode: boolean;
 }
 
 function ThreadedTeeth({ width, depth }: { width: number; depth: number }) {
@@ -113,19 +112,15 @@ function CageShell({ variant }: { variant: 'solid' | 'lattice' }) {
   );
 }
 
-export function InterbodyCage({ variant, visible, explode }: InterbodyCageProps) {
+export function InterbodyCage({ variant, visible }: InterbodyCageProps) {
   const { implants } = useSpineLayout();
 
   if (!visible) return null;
 
-  const offset = explode ? EXPLODE_OFFSETS.cage : ([0, 0, 0] as [number, number, number]);
   const base = implants.interbody.position;
 
   return (
-    <group
-      position={[base[0] + offset[0], base[1] + offset[1], base[2] + offset[2]]}
-      rotation={[-0.35, 0, 0]}
-    >
+    <group position={base} rotation={[-0.35, 0, 0]}>
       <CageShell variant={variant} />
       <group position={[0, 0.28, 0]}>
         <ThreadedTeeth width={0.75} depth={0.65} />

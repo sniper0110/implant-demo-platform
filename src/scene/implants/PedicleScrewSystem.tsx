@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { COLORS, EXPLODE_OFFSETS } from '../constants';
+import { COLORS } from '../constants';
 import { useSpineLayout } from '../SpineLayoutContext';
 
 interface PedicleScrewSystemProps {
   visible: boolean;
-  explode: boolean;
 }
 
 function ThreadedShaft({ length }: { length: number }) {
@@ -133,15 +132,10 @@ function PedicleScrew({
   );
 }
 
-export function PedicleScrewSystem({ visible, explode }: PedicleScrewSystemProps) {
+export function PedicleScrewSystem({ visible }: PedicleScrewSystemProps) {
   const { implants } = useSpineLayout();
 
   if (!visible) return null;
-
-  const rodOffsetL = explode ? EXPLODE_OFFSETS.rodL : ([0, 0, 0] as [number, number, number]);
-  const rodOffsetR = explode ? EXPLODE_OFFSETS.rodR : ([0, 0, 0] as [number, number, number]);
-  const screwOffsetL = explode ? EXPLODE_OFFSETS.screwL : ([0, 0, 0] as [number, number, number]);
-  const screwOffsetR = explode ? EXPLODE_OFFSETS.screwR : ([0, 0, 0] as [number, number, number]);
 
   const levels = implants.pedicle.levels;
 
@@ -149,26 +143,18 @@ export function PedicleScrewSystem({ visible, explode }: PedicleScrewSystemProps
     () =>
       levels.map(
         (l, i) =>
-          new THREE.Vector3(
-            l.left[0] + rodOffsetL[0],
-            l.y + 0.38 + rodOffsetL[1] + i * 0.02,
-            l.z - 0.15 + rodOffsetL[2]
-          )
+          new THREE.Vector3(l.left[0], l.y + 0.38 + i * 0.02, l.z - 0.15)
       ),
-    [levels, rodOffsetL]
+    [levels]
   );
 
   const rightRodPoints = useMemo(
     () =>
       levels.map(
         (l, i) =>
-          new THREE.Vector3(
-            l.right[0] + rodOffsetR[0],
-            l.y + 0.38 + rodOffsetR[1] - i * 0.015,
-            l.z - 0.15 + rodOffsetR[2]
-          )
+          new THREE.Vector3(l.right[0], l.y + 0.38 - i * 0.015, l.z - 0.15)
       ),
-    [levels, rodOffsetR]
+    [levels]
   );
 
   const crossPos = implants.pedicle.crossConnector;
@@ -177,34 +163,14 @@ export function PedicleScrewSystem({ visible, explode }: PedicleScrewSystemProps
     <group>
       {levels.map((level, i) => (
         <group key={i}>
-          <PedicleScrew
-            position={[
-              level.left[0] + screwOffsetL[0],
-              level.left[1] + screwOffsetL[1],
-              level.left[2] + screwOffsetL[2],
-            ]}
-            side="left"
-          />
-          <PedicleScrew
-            position={[
-              level.right[0] + screwOffsetR[0],
-              level.right[1] + screwOffsetR[1],
-              level.right[2] + screwOffsetR[2],
-            ]}
-            side="right"
-          />
+          <PedicleScrew position={level.left} side="left" />
+          <PedicleScrew position={level.right} side="right" />
         </group>
       ))}
 
       <ContouredRod points={leftRodPoints} position={[0, 0, 0]} />
       <ContouredRod points={rightRodPoints} position={[0, 0, 0]} />
-      <CrossConnector
-        position={[
-          crossPos[0],
-          crossPos[1] + (explode ? 0.1 : 0),
-          crossPos[2],
-        ]}
-      />
+      <CrossConnector position={crossPos} />
     </group>
   );
 }

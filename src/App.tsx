@@ -1,63 +1,53 @@
 import { useState, useCallback } from 'react';
-import { STORY_STEPS } from './data/story';
-import { PRODUCT_MAP } from './data/products';
-import type { ProductId, ViewToggles, CameraState } from './types';
-import { StoryPanel } from './components/StoryPanel';
-import { ProductSelector } from './components/ProductSelector';
-import { ViewControls } from './components/ViewControls';
-import { ResourceCards } from './components/ResourceCards';
+import { getStorySteps, getDefaultStepIndex } from './data/story';
+import type { ViewToggles, CameraState } from './types';
+import { InfoPanel } from './components/InfoPanel';
+import { StoryProgress } from './components/StoryProgress';
 import { Disclaimer } from './components/Disclaimer';
 import { SpineScene } from './scene/SpineScene';
 
+const LUMBAR_STORY_STEPS = getStorySteps('lumbar-fusion');
+const DEFAULT_STEP_INDEX = getDefaultStepIndex('lumbar-fusion');
+
 const DEFAULT_TOGGLES: ViewToggles = {
-  anatomy: true,
-  implant: true,
+  anatomyOpacity: 0.85,
+  cage: true,
+  pedicleScrews: true,
   labels: true,
-  explode: false,
+  measurements: false,
 };
 
 export default function App() {
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
-  const [productId, setProductId] = useState<ProductId>('solar-psi');
+  const [activeStepIndex, setActiveStepIndex] = useState(DEFAULT_STEP_INDEX);
   const [toggles, setToggles] = useState<ViewToggles>(DEFAULT_TOGGLES);
-  const [camera, setCamera] = useState<CameraState>(STORY_STEPS[0].camera);
 
-  const product = PRODUCT_MAP[productId];
+  const activeStep = LUMBAR_STORY_STEPS[activeStepIndex];
+  const [camera, setCamera] = useState<CameraState>(activeStep.camera);
 
-  const handleStepSelect = useCallback((index: number) => {
-    const step = STORY_STEPS[index];
+  const handleStepChange = useCallback((index: number) => {
+    const step = LUMBAR_STORY_STEPS[index];
+    if (!step) return;
     setActiveStepIndex(index);
-    setProductId(step.productId);
     setCamera(step.camera);
   }, []);
 
-  const handleProductSelect = useCallback((id: ProductId) => {
-    setProductId(id);
-  }, []);
+  const handlePrevious = useCallback(() => {
+    handleStepChange(Math.max(0, activeStepIndex - 1));
+  }, [activeStepIndex, handleStepChange]);
 
-  const handleToggle = useCallback((key: keyof ViewToggles) => {
-    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+  const handleNext = useCallback(() => {
+    handleStepChange(Math.min(LUMBAR_STORY_STEPS.length - 1, activeStepIndex + 1));
+  }, [activeStepIndex, handleStepChange]);
 
-  const handleBrochure = useCallback(() => {
-    alert(
-      `Brochure request registered for ${product.name}.\n\nIn production, this would trigger a PDF download or CRM lead capture.`
-    );
-  }, [product.name]);
+  const handleToggle = useCallback(
+    (key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels' | 'measurements'>) => {
+      setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+    },
+    []
+  );
 
-  const handleRequestInfo = useCallback(() => {
-    alert(
-      `Information request submitted for ${product.name}.\n\nIn production, this would open a contact form or integrate with your sales pipeline.`
-    );
-  }, [product.name]);
-
-  const handleShareDemo = useCallback(() => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      alert(`Demo link copied to clipboard:\n${url}`);
-    }).catch(() => {
-      alert(`Share this demo:\n${url}`);
-    });
+  const handleAnatomyOpacityChange = useCallback((value: number) => {
+    setToggles((prev) => ({ ...prev, anatomyOpacity: value }));
   }, []);
 
   return (
@@ -66,10 +56,11 @@ export default function App() {
         <div className="brand">
           <div className="brand-mark" aria-hidden="true" />
           <div className="brand-text">
-            <span className="brand-name">DeGen</span>
+            <span className="brand-name">PYCAD</span>
             <span className="brand-tagline">Interactive Implant Demo Portal</span>
           </div>
         </div>
+        <div className="header-module">Lumbar Fusion</div>
         <div className="header-meta">
           <span className="header-badge">Sales Module</span>
           <span className="header-version">v1.0.0-mvp</span>
@@ -77,54 +68,35 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        <aside className="left-panel">
-          <StoryPanel
-            activeStepIndex={activeStepIndex}
-            onStepSelect={handleStepSelect}
+        <section className="scene-area" aria-label="3D product visualization">
+          <SpineScene
+            sceneMode={activeStep.sceneMode}
+            productId={activeStep.productId}
+            toggles={toggles}
+            camera={camera}
+            measurements={activeStep.measurements}
           />
 
-          <div className="panel-section">
-            <div className="panel-section-title">Product Selector</div>
-            <ProductSelector
-              activeProductId={productId}
-              onSelect={handleProductSelect}
-            />
-          </div>
+          <StoryProgress
+            stepIndex={activeStepIndex}
+            totalSteps={LUMBAR_STORY_STEPS.length}
+            stepTitle={activeStep.title}
+            onPrevious={handlePrevious}
+            onNext={handleNext}
+          />
 
-          <div className="panel-section">
-            <div className="panel-section-title">View Controls</div>
-            <ViewControls toggles={toggles} onToggle={handleToggle} />
-          </div>
-        </aside>
-
-        <section className="scene-area" aria-label="3D product visualization">
-          <SpineScene productId={productId} toggles={toggles} camera={camera} />
-
-          <div className="scene-overlay-top">
-            <div className="scene-product-chip">
-              <span className="scene-product-name">{product.name}</span>
-              <span className="scene-product-category">{product.category}</span>
-            </div>
-            <span className="scene-region-badge">{product.region} region</span>
-          </div>
-
-          <div className="scene-overlay-bottom">
-            <div className="scene-highlights">
-              {product.highlights.map((h) => (
-                <span key={h} className="highlight-chip">{h}</span>
-              ))}
-            </div>
-            <span className="scene-controls-hint">Drag to orbit · Right-drag to pan · Scroll to zoom</span>
-          </div>
+          <span className="scene-controls-hint">Drag to orbit · Right-drag to pan · Scroll to zoom</span>
         </section>
+
+        <InfoPanel
+          step={activeStep}
+          toggles={toggles}
+          onToggle={handleToggle}
+          onAnatomyOpacityChange={handleAnatomyOpacityChange}
+        />
       </main>
 
       <footer className="app-footer">
-        <ResourceCards
-          onBrochure={handleBrochure}
-          onRequestInfo={handleRequestInfo}
-          onShareDemo={handleShareDemo}
-        />
         <Disclaimer />
       </footer>
     </div>

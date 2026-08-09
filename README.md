@@ -1,4 +1,4 @@
-# DeGen Interactive Implant Demo Portal
+# PYCAD Interactive Implant Demo Portal
 
 Illustrative sales and education demo module for spine implant manufacturing partnerships. Built with Vite, React, TypeScript, and React Three Fiber.
 

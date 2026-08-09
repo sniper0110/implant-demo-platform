@@ -7,6 +7,7 @@ export const PRODUCTS: Product[] = [
     shortName: 'Solar PSI',
     category: 'Patient-Specific Interbody',
     region: 'lumbar',
+    family: 'lumbar-fusion',
     description:
       'Modular interbody platform concept for lumbar fusion workflows. Demonstrates footprint sizing, lordotic options, and instrumentation compatibility in a sales-education context.',
     highlights: [
@@ -22,6 +23,7 @@ export const PRODUCTS: Product[] = [
     shortName: 'Impulse AM',
     category: 'Additive Manufactured Cage',
     region: 'lumbar',
+    family: 'lumbar-fusion',
     description:
       'Lattice-structured interbody concept illustrating additive manufacturing design freedom. Shown for manufacturing capability discussion, not patient-specific planning.',
     highlights: [
@@ -32,26 +34,12 @@ export const PRODUCTS: Product[] = [
     implantType: 'interbody',
   },
   {
-    id: 'hyper-c',
-    name: 'Hyper-C / Cyclops',
-    shortName: 'Hyper-C',
-    category: 'Anterior Cervical Plate',
-    region: 'cervical',
-    description:
-      'Low-profile anterior cervical plate system with integrated screw fixation. Demonstrates construct stability concepts and screw trajectory visualization.',
-    highlights: [
-      'Low-profile plate geometry',
-      'Multi-level construct options',
-      'Self-drilling screw interface',
-    ],
-    implantType: 'cervical-plate',
-  },
-  {
     id: 'e3-f1',
     name: 'E3 / F1',
     shortName: 'E3 / F1',
     category: 'Pedicle Screw System',
     region: 'lumbar',
+    family: 'lumbar-fusion',
     description:
       'Posterior fixation construct with polyaxial pedicle screws and connecting rods. Illustrates rod contouring, screw angulation, and cross-connector placement.',
     highlights: [
@@ -67,6 +55,7 @@ export const PRODUCTS: Product[] = [
     shortName: 'Augmenta VAD',
     category: 'Vertebral Augmentation Device',
     region: 'lumbar',
+    family: 'vertebral-augmentation',
     description:
       'Vertebral augmentation delivery concept for sales discussions around access, fill material distribution, and procedural workflow visualization.',
     highlights: [

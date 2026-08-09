@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
-import { COLORS, EXPLODE_OFFSETS } from '../constants';
+import { COLORS } from '../constants';
 import { useSpineLayout } from '../SpineLayoutContext';
 
 interface VADDeviceProps {
   visible: boolean;
-  explode: boolean;
 }
 
-export function VADDevice({ visible, explode }: VADDeviceProps) {
+export function VADDevice({ visible }: VADDeviceProps) {
   const { implants } = useSpineLayout();
 
   const fillParticles = useMemo(() => {
@@ -30,12 +29,11 @@ export function VADDevice({ visible, explode }: VADDeviceProps) {
 
   if (!visible) return null;
 
-  const offset = explode ? EXPLODE_OFFSETS.vad : ([0, 0, 0] as [number, number, number]);
   const target = implants.vad.target;
   const cannulaBase = implants.vad.cannulaBase;
 
   return (
-    <group position={offset}>
+    <group>
       {/* Target vertebra region highlight */}
       <mesh position={target}>
         <boxGeometry args={[0.85, 0.48, 0.65]} />

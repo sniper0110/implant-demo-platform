@@ -1,79 +1,56 @@
 import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import type { ProductId, ViewToggles, CameraState } from '../types';
-import { getRegionForProduct } from './constants';
-import { CameraController } from './CameraController';
-import { SpineAnatomy, GroundGrid, SceneLighting, ProceduralSpineFallback } from './SpineAnatomy';
-import { SpineLayoutProvider } from './SpineLayoutContext';
-import { InterbodyCage } from './implants/InterbodyCage';
-import { CervicalPlate } from './implants/CervicalPlate';
-import { PedicleScrewSystem } from './implants/PedicleScrewSystem';
-import { VADDevice } from './implants/VADDevice';
-import { SceneLabels } from './SceneLabels';
+import type {
+  ProductId,
+  SceneMode,
+  ViewToggles,
+  CameraState,
+  MeasurementAnnotation,
+} from '../types';
+import { SceneLighting } from './SpineAnatomy';
+import { SceneMeasurements } from './SceneMeasurements';
 import { SceneLoadingFallback } from './SceneLoadingFallback';
+import { GlbLumbarScene } from './GlbLumbarScene';
+import { GlbSceneLabels } from './GlbSceneLabels';
+import { GlbCameraFit } from './GlbCameraFit';
+import { useGlbSceneLayout } from './GlbSceneLayoutContext';
 
 interface SpineSceneProps {
+  sceneMode: SceneMode;
   productId: ProductId;
   toggles: ViewToggles;
   camera: CameraState;
+  measurements: MeasurementAnnotation[];
 }
 
-function ImplantRenderer({
-  productId,
-  visible,
-  explode,
-}: {
-  productId: ProductId;
-  visible: boolean;
-  explode: boolean;
-}) {
-  switch (productId) {
-    case 'solar-psi':
-      return <InterbodyCage variant="solid" visible={visible} explode={explode} />;
-    case 'impulse-am':
-      return <InterbodyCage variant="lattice" visible={visible} explode={explode} />;
-    case 'hyper-c':
-      return <CervicalPlate visible={visible} explode={explode} />;
-    case 'e3-f1':
-      return <PedicleScrewSystem visible={visible} explode={explode} />;
-    case 'augmenta-vad':
-      return <VADDevice visible={visible} explode={explode} />;
-    default:
-      return null;
-  }
-}
-
-function SceneContent({ productId, toggles, camera }: SpineSceneProps) {
-  const region = getRegionForProduct(productId);
+function LumbarGlbOverlays({ sceneMode, toggles, measurements }: SpineSceneProps) {
+  const layout = useGlbSceneLayout();
 
   return (
-    <SpineLayoutProvider>
-      <SceneLighting />
-      <CameraController target={camera} />
-      <OrbitControls
-        makeDefault
-        enablePan
-        enableZoom
-        enableRotate
-        minDistance={2}
-        maxDistance={40}
-        maxPolarAngle={Math.PI}
-        minPolarAngle={0}
-        target={camera.target}
-      />
+    <>
+      <GlbCameraFit root={layout.root} sceneMode={sceneMode} focusMeshes={layout.focusMeshes} />
+      <GlbSceneLabels sceneMode={sceneMode} visible={toggles.labels} />
+      <SceneMeasurements measurements={measurements} visible={toggles.measurements} />
+    </>
+  );
+}
 
-      <SpineAnatomy region={region} visible={toggles.anatomy} explode={toggles.explode} />
-      <ImplantRenderer productId={productId} visible={toggles.implant} explode={toggles.explode} />
-      <SceneLabels productId={productId} visible={toggles.labels} />
-      <GroundGrid />
-    </SpineLayoutProvider>
+function LumbarSceneContent(props: SpineSceneProps) {
+  return (
+    <>
+      <SceneLighting />
+      <OrbitControls makeDefault enablePan enableZoom enableRotate maxPolarAngle={Math.PI} minPolarAngle={0} />
+
+      <GlbLumbarScene toggles={props.toggles}>
+        <LumbarGlbOverlays {...props} />
+      </GlbLumbarScene>
+    </>
   );
 }
 
 interface SceneErrorBoundaryProps {
   children: ReactNode;
-  anatomyVisible: boolean;
 }
 
 interface SceneErrorBoundaryState {
@@ -88,7 +65,7 @@ class SceneErrorBoundary extends Component<SceneErrorBoundaryProps, SceneErrorBo
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.warn('Spine mesh loading failed, using procedural fallback.', error, info);
+    console.warn('Scene loading failed.', error, info);
   }
 
   render() {
@@ -96,8 +73,10 @@ class SceneErrorBoundary extends Component<SceneErrorBoundaryProps, SceneErrorBo
       return (
         <>
           <SceneLighting />
-          <ProceduralSpineFallback visible={this.props.anatomyVisible} />
-          <GroundGrid />
+          <mesh>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color="#323848" wireframe />
+          </mesh>
         </>
       );
     }
@@ -105,20 +84,20 @@ class SceneErrorBoundary extends Component<SceneErrorBoundaryProps, SceneErrorBo
   }
 }
 
-export function SpineScene({ productId, toggles, camera }: SpineSceneProps) {
+export function SpineScene(props: SpineSceneProps) {
   return (
     <Canvas
       className="scene-canvas"
       shadows
-      camera={{ position: camera.position, fov: 42, near: 0.1, far: 100 }}
+      camera={{ position: [0, 50, 100], fov: 42, near: 0.1, far: 2000 }}
       gl={{ antialias: true, alpha: false }}
       style={{ background: '#0a0b0d' }}
     >
       <color attach="background" args={['#0a0b0d']} />
-      <fog attach="fog" args={['#0a0b0d', 40, 80]} />
-      <SceneErrorBoundary anatomyVisible={toggles.anatomy}>
-        <Suspense fallback={<SceneLoadingFallback />}>
-          <SceneContent productId={productId} toggles={toggles} camera={camera} />
+      <fog attach="fog" args={['#0a0b0d', 200, 800]} />
+      <SceneErrorBoundary>
+        <Suspense fallback={<SceneLoadingFallback message="Loading lumbar fusion scene…" />}>
+          <LumbarSceneContent {...props} />
         </Suspense>
       </SceneErrorBoundary>
     </Canvas>

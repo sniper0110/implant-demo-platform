@@ -1,6 +1,6 @@
 import { Html } from '@react-three/drei';
-import type { ProductId } from '../types';
-import { useSpineLayout } from './SpineLayoutContext';
+import type { ProductId, SceneMode } from '../types';
+import { useSpineLayout, type ImplantAnchors } from './SpineLayoutContext';
 
 interface LabelEntry {
   position: [number, number, number];
@@ -32,53 +32,63 @@ function Label({ position, text, subtle = false }: LabelEntry & { subtle?: boole
 }
 
 interface SceneLabelsProps {
+  sceneMode: SceneMode;
   productId: ProductId;
   visible: boolean;
 }
 
-export function SceneLabels({ productId, visible }: SceneLabelsProps) {
+function getLabelsForScene(
+  sceneMode: SceneMode,
+  _productId: ProductId,
+  implants: ImplantAnchors
+): LabelEntry[] {
+  switch (sceneMode) {
+    case 'full-construct': {
+      const screw = implants.pedicle.levels[1];
+      return [
+        { position: implants.interbody.position, text: 'Interbody Cage' },
+        { position: screw.left, text: 'Pedicle Screw' },
+        { position: implants.pedicle.rodLeft, text: 'Connecting Rod' },
+      ];
+    }
+    case 'interbody-cage':
+      return [
+        { position: implants.interbody.position, text: 'Interbody Cage' },
+        { position: implants.labels.vertebralBody, text: 'Vertebral Body' },
+        { position: implants.labels.discSpace, text: 'Disc Space' },
+      ];
+    case 'pedicle-system': {
+      const screw = implants.pedicle.levels[1];
+      return [
+        { position: screw.left, text: 'Pedicle Screw' },
+        { position: implants.pedicle.rodLeft, text: 'Connecting Rod' },
+        { position: implants.pedicle.crossConnector, text: 'Cross-Connector' },
+      ];
+    }
+    case 'vad':
+      return [
+        {
+          position: [
+            implants.vad.cannulaBase[0] - 0.35,
+            implants.vad.cannulaBase[1] + 0.25,
+            implants.vad.cannulaBase[2] + 0.35,
+          ],
+          text: 'Access Cannula',
+        },
+        { position: implants.vad.target, text: 'Fill Material' },
+        { position: implants.labels.vertebralBody, text: 'Vertebral Body' },
+      ];
+    default:
+      return [];
+  }
+}
+
+export function SceneLabels({ sceneMode, productId, visible }: SceneLabelsProps) {
   const { anchors, implants } = useSpineLayout();
 
   if (!visible) return null;
 
-  const productLabels: LabelEntry[] = (() => {
-    switch (productId) {
-      case 'solar-psi':
-        return [
-          { position: implants.interbody.position, text: 'Interbody Cage' },
-          { position: implants.labels.vertebralBody, text: 'Vertebral Body' },
-          { position: implants.labels.discSpace, text: 'Disc Space' },
-        ];
-      case 'impulse-am':
-        return [
-          { position: implants.interbody.position, text: 'Lattice Structure' },
-          { position: [implants.interbody.position[0] + 0.5, implants.interbody.position[1], implants.interbody.position[2] - 0.1], text: 'Porosity Zone' },
-          { position: implants.labels.endplate, text: 'Endplate' },
-        ];
-      case 'hyper-c':
-        return [
-          { position: implants.cervical.plateCenter, text: 'Cervical Plate' },
-          { position: implants.cervical.screwPositions[0], text: 'Fixation Screw' },
-          { position: implants.cervical.vertebraLabel, text: 'T11 Vertebra' },
-        ];
-      case 'e3-f1': {
-        const screw = implants.pedicle.levels[1];
-        return [
-          { position: screw.left, text: 'Pedicle Screw' },
-          { position: implants.pedicle.rodLeft, text: 'Connecting Rod' },
-          { position: implants.pedicle.crossConnector, text: 'Cross-Connector' },
-        ];
-      }
-      case 'augmenta-vad':
-        return [
-          { position: [implants.vad.cannulaBase[0] - 0.35, implants.vad.cannulaBase[1] + 0.25, implants.vad.cannulaBase[2] + 0.35], text: 'Access Cannula' },
-          { position: implants.vad.target, text: 'Fill Material' },
-          { position: implants.labels.vertebralBody, text: 'Vertebral Body' },
-        ];
-      default:
-        return [];
-    }
-  })();
+  const productLabels = getLabelsForScene(sceneMode, productId, implants);
 
   return (
     <group>
