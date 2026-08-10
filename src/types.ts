@@ -27,14 +27,6 @@ export interface Product {
   implantType: 'interbody' | 'cervical-plate' | 'pedicle-screw' | 'vad';
 }
 
-export interface MeasurementAnnotation {
-  id: string;
-  label: string;
-  value: string;
-  start: [number, number, number];
-  end: [number, number, number];
-}
-
 export interface StoryStep {
   id: string;
   title: string;
@@ -44,11 +36,6 @@ export interface StoryStep {
   callouts: [string, string, string];
   sceneMode: SceneMode;
   productId: ProductId;
-  camera: {
-    position: [number, number, number];
-    target: [number, number, number];
-  };
-  measurements: MeasurementAnnotation[];
 }
 
 export interface ViewToggles {
@@ -56,10 +43,6 @@ export interface ViewToggles {
   cage: boolean;
   pedicleScrews: boolean;
   labels: boolean;
-  measurements: boolean;
 }
 
-export interface CameraState {
-  position: [number, number, number];
-  target: [number, number, number];
-}
+export type SceneToggleKey = keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels'>;

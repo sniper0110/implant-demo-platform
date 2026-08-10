@@ -107,11 +107,16 @@ export function SpineAnatomy({ opacity }: SpineAnatomyProps) {
   );
 }
 
-export function SceneLighting() {
+export function SceneLighting({ shadows = true }: { shadows?: boolean }) {
   return (
     <>
       <ambientLight intensity={0.35} />
-      <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight
+        position={[5, 8, 5]}
+        intensity={1.2}
+        castShadow={shadows}
+        shadow-mapSize={shadows ? [1024, 1024] : undefined}
+      />
       <directionalLight position={[-4, 4, -3]} intensity={0.4} color="#8899bb" />
       <pointLight position={[0, 3, 2]} intensity={0.3} color={COLORS.gold} />
     </>

@@ -2,18 +2,17 @@ import type { ViewToggles } from '../types';
 
 interface ViewControlsProps {
   toggles: ViewToggles;
-  onToggle: (key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels' | 'measurements'>) => void;
+  onToggle: (key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels'>) => void;
   onAnatomyOpacityChange: (value: number) => void;
 }
 
 const TOGGLE_CONFIG: {
-  key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels' | 'measurements'>;
+  key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels'>;
   label: string;
 }[] = [
   { key: 'cage', label: 'Cage' },
   { key: 'pedicleScrews', label: 'Pedicle Screws' },
   { key: 'labels', label: 'Labels' },
-  { key: 'measurements', label: 'Measurements' },
 ];
 
 export function ViewControls({ toggles, onToggle, onAnatomyOpacityChange }: ViewControlsProps) {

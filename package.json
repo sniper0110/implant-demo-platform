@@ -5,8 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5179",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 5179"
+    "dev:server": "npm --prefix server run dev",
+    "dev:embed": "concurrently \"npm run dev:server\" \"npm run dev\"",
+    "build": "tsc --noEmit && vite build && vite build --config vite.loader.config.ts && node scripts/stage-release-assets.mjs",
+    "build:loader": "vite build --config vite.loader.config.ts",
+    "build:all": "npm run optimize:models && npm run build && npm run build:loader",
+    "build:server": "npm --prefix server run build",
+    "preview": "vite preview --host 0.0.0.0 --port 5179",
+    "start:server": "node server/dist/app.js",
+    "optimize:models": "node scripts/optimize-model.mjs",
+    "check:budgets": "node scripts/check-budgets.mjs",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test && npm run build:all && npm run check:budgets"
   },
   "dependencies": {
     "@react-three/drei": "^9.117.3",
@@ -16,13 +27,20 @@
     "three": "^0.170.0"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.1.1",
+    "@gltf-transform/extensions": "^4.1.1",
+    "@gltf-transform/functions": "^4.1.1",
+    "@playwright/test": "^1.61.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "meshoptimizer": "^0.22.0",
     "playwright-core": "^1.61.1",
     "pngjs": "^7.0.0",
     "typescript": "^5.6.3",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^3.0.5"
   }
 }

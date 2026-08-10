@@ -1,4 +1,6 @@
-export const LUMBAR_FUSION_GLB_URL = '/models/lumbar-fusion.glb';
+export const LUMBAR_FUSION_GLB_URL = '/models/lumbar-fusion-initial.glb';
+export const LUMBAR_FUSION_DETAIL_GLB_URL = '/models/lumbar-fusion-detail.glb';
+export const LUMBAR_FUSION_MOBILE_GLB_URL = '/models/lumbar-fusion-mobile.glb';
 
 export type SceneElementGroup = 'spine' | 'cage' | 'pedicleScrew';
 
@@ -24,4 +26,21 @@ export function getSpineLabel(name: string): string {
   const match = normalized.match(SPINE_PATTERN);
   if (match) return match[1].toUpperCase();
   return name.replace(/\.stl$/i, '').toUpperCase();
+}
+
+export const REQUIRED_MESH_PATTERNS = [
+  /^l4/i,
+  /^l5/i,
+  /cage/i,
+  /pedicle/i,
+];
+
+export function validateRequiredMeshes(meshNames: string[]): string[] {
+  const missing: string[] = [];
+  for (const pattern of REQUIRED_MESH_PATTERNS) {
+    if (!meshNames.some((name) => pattern.test(name))) {
+      missing.push(pattern.source);
+    }
+  }
+  return missing;
 }

@@ -1,42 +1,57 @@
 # PYCAD Interactive Implant Demo Portal
 
-Illustrative sales and education demo module for spine implant manufacturing partnerships. Built with Vite, React, TypeScript, and React Three Fiber.
+Illustrative sales and education demo module for spine implant manufacturing partnerships. Built with Vite, React, TypeScript, React Three Fiber, and a managed embed platform.
 
-**Not for clinical use.** All 3D geometry is procedurally generated — no external assets.
+**Not for clinical use.**
 
 ## Quick Start
 
 ```bash
 npm install
-npm run dev
+npm --prefix server install
+npm run dev:embed
 ```
 
-Opens at `http://localhost:5179` (bound to `0.0.0.0`).
+- App dev server: `http://localhost:5179`
+- Embed API + static server: `http://localhost:8787`
+
+## Embed snippet (customer sites)
+
+```html
+<div data-pycad-embed="emb_pycad_staging" data-layout="section"></div>
+<script async src="https://implant-demo.pycad.co/embed/v1.js"></script>
+```
+
+See [docs/customer-embed-guide.md](docs/customer-embed-guide.md).
 
 ## Scripts
 
-| Command         | Description                          |
-|-----------------|--------------------------------------|
-| `npm run dev`   | Dev server on port 5179              |
-| `npm run build` | TypeScript check + production build  |
-| `npm run preview` | Preview production build           |
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Vite dev server |
+| `npm run dev:embed` | API server + Vite dev |
+| `npm run build` | Production build (app + loader) |
+| `npm run optimize:models` | GLB optimization pipeline |
+| `npm run check:budgets` | Validate artifact size budgets |
+| `npm run test` | Vitest unit tests |
+| `npm run test:e2e` | Playwright embed tests |
+| `npm run start:server` | Run built embed server |
 
-## Product Families
+## Staging deployment (GCP)
 
-- **Solar PSI** — Patient-specific interbody cage (lumbar)
-- **Impulse AM** — Additive manufactured lattice cage (lumbar)
-- **Hyper-C / Cyclops** — Anterior cervical plate system
-- **E3 / F1** — Pedicle screw and rod construct
-- **Augmenta VAD** — Vertebral augmentation device
+```bash
+cp deploy/gcp/.env.example deploy/gcp/.env
+deploy/gcp/run.bat --build-push
+```
 
-## Features
+See [docs/gcp-staging.md](docs/gcp-staging.md).
 
-- Guided 7-step sales story with camera transitions
-- Product selector with region-aware 3D scenes
-- Toggles: anatomy, implant, labels, explode view
-- Resource cards: brochure, request info, share demo
-- Responsive layout with dark graphite + gold accent theme
+## pycad.co test page
+
+Use [../pycad-website/implant-demo-test-page.html](../pycad-website/implant-demo-test-page.html) on:
+
+`https://pycad.co/resources/implant-demo-test/`
 
 ## Disclaimer
 
-This application is an illustrative sales and education demo only. It is not intended for clinical planning, diagnosis, or treatment decisions.
+Non-clinical demonstration only.

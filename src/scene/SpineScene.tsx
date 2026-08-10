@@ -1,49 +1,64 @@
-import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import type {
-  ProductId,
-  SceneMode,
-  ViewToggles,
-  CameraState,
-  MeasurementAnnotation,
-} from '../types';
+import type { ProductId, SceneMode, ViewToggles } from '../types';
+import type { DeviceTierResult } from '../embed/deviceTier';
 import { SceneLighting } from './SpineAnatomy';
-import { SceneMeasurements } from './SceneMeasurements';
 import { SceneLoadingFallback } from './SceneLoadingFallback';
 import { GlbLumbarScene } from './GlbLumbarScene';
 import { GlbSceneLabels } from './GlbSceneLabels';
 import { GlbCameraFit } from './GlbCameraFit';
 import { useGlbSceneLayout } from './GlbSceneLayoutContext';
+import { LUMBAR_FUSION_GLB_URL } from './sceneAssetConfig';
+
+/** Medium neutral slate — improves implant contrast vs near-black UI chrome. */
+const SCENE_BACKGROUND = '#343A40';
 
 interface SpineSceneProps {
   sceneMode: SceneMode;
   productId: ProductId;
   toggles: ViewToggles;
-  camera: CameraState;
-  measurements: MeasurementAnnotation[];
+  modelUrl?: string;
+  detailModelUrl?: string;
+  qualityTier?: DeviceTierResult;
+  onSceneLoaded?: () => void;
+  onFirstFrame?: () => void;
+  onSceneError?: (message: string) => void;
 }
 
-function LumbarGlbOverlays({ sceneMode, toggles, measurements }: SpineSceneProps) {
+function LumbarGlbOverlays({ sceneMode, toggles }: Pick<SpineSceneProps, 'sceneMode' | 'toggles'>) {
   const layout = useGlbSceneLayout();
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    invalidate();
+  }, [sceneMode, toggles.labels, invalidate]);
 
   return (
     <>
       <GlbCameraFit root={layout.root} sceneMode={sceneMode} focusMeshes={layout.focusMeshes} />
       <GlbSceneLabels sceneMode={sceneMode} visible={toggles.labels} />
-      <SceneMeasurements measurements={measurements} visible={toggles.measurements} />
     </>
   );
 }
 
 function LumbarSceneContent(props: SpineSceneProps) {
+  const quality = props.qualityTier;
+
   return (
     <>
-      <SceneLighting />
+      <SceneLighting shadows={quality?.shadows ?? true} />
       <OrbitControls makeDefault enablePan enableZoom enableRotate maxPolarAngle={Math.PI} minPolarAngle={0} />
 
-      <GlbLumbarScene toggles={props.toggles}>
-        <LumbarGlbOverlays {...props} />
+      <GlbLumbarScene
+        toggles={props.toggles}
+        modelUrl={props.modelUrl ?? LUMBAR_FUSION_GLB_URL}
+        detailModelUrl={props.detailModelUrl}
+        allowDetailUpgrade={quality?.allowDetailModel ?? false}
+        onSceneLoaded={props.onSceneLoaded}
+        onFirstFrame={props.onFirstFrame}
+      >
+        <LumbarGlbOverlays sceneMode={props.sceneMode} toggles={props.toggles} />
       </GlbLumbarScene>
     </>
   );
@@ -51,6 +66,7 @@ function LumbarSceneContent(props: SpineSceneProps) {
 
 interface SceneErrorBoundaryProps {
   children: ReactNode;
+  onError?: (message: string) => void;
 }
 
 interface SceneErrorBoundaryState {
@@ -66,13 +82,14 @@ class SceneErrorBoundary extends Component<SceneErrorBoundaryProps, SceneErrorBo
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.warn('Scene loading failed.', error, info);
+    this.props.onError?.(error.message);
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <>
-          <SceneLighting />
+          <SceneLighting shadows={false} />
           <mesh>
             <boxGeometry args={[1, 1, 1]} />
             <meshStandardMaterial color="#323848" wireframe />
@@ -84,20 +101,62 @@ class SceneErrorBoundary extends Component<SceneErrorBoundaryProps, SceneErrorBo
   }
 }
 
-export function SpineScene(props: SpineSceneProps) {
+function WheelCapture() {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [gl]);
+
+  return null;
+}
+
+function CanvasResizeInvalidator() {
+  const { gl, invalidate, size } = useThree();
+
+  useEffect(() => {
+    invalidate();
+  }, [size.width, size.height, invalidate]);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const observer = new ResizeObserver(() => invalidate());
+    observer.observe(canvas.parentElement ?? canvas);
+    return () => observer.disconnect();
+  }, [gl, invalidate]);
+
+  return null;
+}
+
+export function SpineScene({ qualityTier, modelUrl, onSceneError, ...props }: SpineSceneProps) {
+  const dpr = qualityTier?.dprCap ?? Math.min(window.devicePixelRatio, 2);
+  const frameloop = qualityTier?.frameloop ?? 'demand';
+
   return (
     <Canvas
       className="scene-canvas"
-      shadows
+      shadows={qualityTier?.shadows ?? true}
       camera={{ position: [0, 50, 100], fov: 42, near: 0.1, far: 2000 }}
-      gl={{ antialias: true, alpha: false }}
-      style={{ background: '#0a0b0d' }}
+      gl={{ antialias: qualityTier?.antialias ?? true, alpha: false, powerPreference: 'high-performance' }}
+      style={{ background: SCENE_BACKGROUND, touchAction: 'none' }}
+      dpr={dpr}
+      frameloop={frameloop}
+      onCreated={({ invalidate }) => {
+        invalidate();
+      }}
     >
-      <color attach="background" args={['#0a0b0d']} />
-      <fog attach="fog" args={['#0a0b0d', 200, 800]} />
-      <SceneErrorBoundary>
+      <color attach="background" args={[SCENE_BACKGROUND]} />
+      <fog attach="fog" args={[SCENE_BACKGROUND, 200, 800]} />
+      <WheelCapture />
+      <CanvasResizeInvalidator />
+      <SceneErrorBoundary onError={onSceneError}>
         <Suspense fallback={<SceneLoadingFallback message="Loading lumbar fusion scene…" />}>
-          <LumbarSceneContent {...props} />
+          <LumbarSceneContent {...props} modelUrl={modelUrl} qualityTier={qualityTier} />
         </Suspense>
       </SceneErrorBoundary>
     </Canvas>

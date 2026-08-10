@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getStorySteps, getDefaultStepIndex } from './data/story';
-import type { ViewToggles, CameraState } from './types';
+import type { ViewToggles } from './types';
 import { InfoPanel } from './components/InfoPanel';
 import { StoryProgress } from './components/StoryProgress';
 import { Disclaimer } from './components/Disclaimer';
@@ -13,8 +13,7 @@ const DEFAULT_TOGGLES: ViewToggles = {
   anatomyOpacity: 0.85,
   cage: true,
   pedicleScrews: true,
-  labels: true,
-  measurements: false,
+  labels: false,
 };
 
 export default function App() {
@@ -22,13 +21,11 @@ export default function App() {
   const [toggles, setToggles] = useState<ViewToggles>(DEFAULT_TOGGLES);
 
   const activeStep = LUMBAR_STORY_STEPS[activeStepIndex];
-  const [camera, setCamera] = useState<CameraState>(activeStep.camera);
 
   const handleStepChange = useCallback((index: number) => {
     const step = LUMBAR_STORY_STEPS[index];
     if (!step) return;
     setActiveStepIndex(index);
-    setCamera(step.camera);
   }, []);
 
   const handlePrevious = useCallback(() => {
@@ -39,12 +36,9 @@ export default function App() {
     handleStepChange(Math.min(LUMBAR_STORY_STEPS.length - 1, activeStepIndex + 1));
   }, [activeStepIndex, handleStepChange]);
 
-  const handleToggle = useCallback(
-    (key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels' | 'measurements'>) => {
-      setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
-    },
-    []
-  );
+  const handleToggle = useCallback((key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels'>) => {
+    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const handleAnatomyOpacityChange = useCallback((value: number) => {
     setToggles((prev) => ({ ...prev, anatomyOpacity: value }));
@@ -73,8 +67,6 @@ export default function App() {
             sceneMode={activeStep.sceneMode}
             productId={activeStep.productId}
             toggles={toggles}
-            camera={camera}
-            measurements={activeStep.measurements}
           />
 
           <StoryProgress

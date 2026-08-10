@@ -1,12 +1,19 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { Box3, Vector3, type Group, type Material, type Mesh } from 'three';
 import type { ViewToggles } from '../types';
 import { classifySceneNode, LUMBAR_FUSION_GLB_URL } from './sceneAssetConfig';
 import { GlbSceneLayoutProvider, type GlbSceneLayout } from './GlbSceneLayoutContext';
+import { applyDefaultModelOrientation } from './glbOrientation';
 
 interface GlbLumbarSceneProps {
   toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
+  modelUrl?: string;
+  detailModelUrl?: string;
+  allowDetailUpgrade?: boolean;
+  onSceneLoaded?: () => void;
+  onFirstFrame?: () => void;
   children?: React.ReactNode;
 }
 
@@ -83,11 +90,49 @@ function setMeshesVisible(meshes: Mesh[], visible: boolean) {
   }
 }
 
-export function GlbLumbarScene({ toggles, children }: GlbLumbarSceneProps) {
-  const { scene } = useGLTF(LUMBAR_FUSION_GLB_URL);
+function ModelLoadReporter({ onLoaded }: { onLoaded?: () => void }) {
+  const reported = useRef(false);
+
+  useEffect(() => {
+    if (reported.current) return;
+    reported.current = true;
+    onLoaded?.();
+  }, [onLoaded]);
+
+  return null;
+}
+
+function FirstFrameReporter({ onFirstFrame }: { onFirstFrame?: () => void }) {
+  const reported = useRef(false);
+
+  useFrame(() => {
+    if (reported.current) return;
+    reported.current = true;
+    onFirstFrame?.();
+  });
+
+  return null;
+}
+
+function LumbarSceneModel({
+  url,
+  toggles,
+  onSceneLoaded,
+  onFirstFrame,
+  children,
+}: {
+  url: string;
+  toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
+  onSceneLoaded?: () => void;
+  onFirstFrame?: () => void;
+  children?: React.ReactNode;
+}) {
+  const { scene } = useGLTF(url);
+  const invalidate = useThree((state) => state.invalidate);
 
   const { root, groupedMeshes, layout } = useMemo(() => {
     const cloned = cloneSceneGraph(scene);
+    applyDefaultModelOrientation(cloned);
     const grouped = collectGroupedMeshes(cloned);
     return {
       root: cloned,
@@ -97,29 +142,75 @@ export function GlbLumbarScene({ toggles, children }: GlbLumbarSceneProps) {
   }, [scene]);
 
   useEffect(() => {
+    invalidate();
+  }, [root, layout, invalidate]);
+
+  useEffect(() => {
     for (const mesh of groupedMeshes.spine) {
       applyMaterialOpacity(mesh.material, toggles.anatomyOpacity);
     }
-  }, [groupedMeshes.spine, toggles.anatomyOpacity]);
+    invalidate();
+  }, [groupedMeshes.spine, toggles.anatomyOpacity, invalidate]);
 
   useEffect(() => {
     const spineVisible = toggles.anatomyOpacity > 0;
     setMeshesVisible(groupedMeshes.spine, spineVisible);
     setMeshesVisible(groupedMeshes.cage, toggles.cage);
     setMeshesVisible(groupedMeshes.pedicleScrews, toggles.pedicleScrews);
-  }, [
-    groupedMeshes,
-    toggles.anatomyOpacity,
-    toggles.cage,
-    toggles.pedicleScrews,
-  ]);
+    invalidate();
+  }, [groupedMeshes, toggles.anatomyOpacity, toggles.cage, toggles.pedicleScrews, invalidate]);
 
   return (
     <GlbSceneLayoutProvider value={layout}>
       <primitive object={root} />
+      <ModelLoadReporter onLoaded={onSceneLoaded} />
+      <FirstFrameReporter onFirstFrame={onFirstFrame} />
       {children}
     </GlbSceneLayoutProvider>
   );
 }
 
-useGLTF.preload(LUMBAR_FUSION_GLB_URL);
+export function GlbLumbarScene({
+  toggles,
+  modelUrl = LUMBAR_FUSION_GLB_URL,
+  detailModelUrl,
+  allowDetailUpgrade = false,
+  onSceneLoaded,
+  onFirstFrame,
+  children,
+}: GlbLumbarSceneProps) {
+  const [activeUrl, setActiveUrl] = useState(modelUrl);
+  const [upgraded, setUpgraded] = useState(false);
+
+  useEffect(() => {
+    setActiveUrl(modelUrl);
+    setUpgraded(false);
+  }, [modelUrl]);
+
+  useEffect(() => {
+    if (!allowDetailUpgrade || !detailModelUrl || upgraded) return;
+
+    const upgrade = () => {
+      setActiveUrl(detailModelUrl);
+      setUpgraded(true);
+    };
+
+    window.addEventListener('pointerdown', upgrade, { once: true });
+    return () => window.removeEventListener('pointerdown', upgrade);
+  }, [allowDetailUpgrade, detailModelUrl, upgraded]);
+
+  return (
+    <LumbarSceneModel
+      url={activeUrl}
+      toggles={toggles}
+      onSceneLoaded={onSceneLoaded}
+      onFirstFrame={onFirstFrame}
+    >
+      {children}
+    </LumbarSceneModel>
+  );
+}
+
+export function preloadModel(url: string) {
+  useGLTF.preload(url);
+}

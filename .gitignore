@@ -1,5 +1,11 @@
 node_modules/
+server/node_modules/
 dist/
+deploy/gcp/_state/*
+!deploy/gcp/_state/.gitkeep
+deploy/gcp/.env
 *.log
 *.pid
 *.png
+test-results/
+playwright-report/

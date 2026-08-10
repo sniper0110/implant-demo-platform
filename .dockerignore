@@ -1,0 +1,11 @@
+node_modules
+server/node_modules
+dist
+.git
+.cursor
+test-results
+playwright-report
+deploy/gcp/_state
+deploy/gcp/.env
+*.log
+samples

@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pycad_embed
+      POSTGRES_USER: pycad
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pycad_embed_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pycad -d pycad_embed']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VITE_RELEASE_ID: ${RELEASE_ID:-v1}
+    environment:
+      PORT: 8080
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://pycad:${POSTGRES_PASSWORD:-pycad_embed_dev}@postgres:5432/pycad_embed
+      PUBLIC_BASE_URL: https://${STAGING_HOST:-implant-demo.pycad.co}
+      ASSET_BASE_URL: https://${STAGING_HOST:-implant-demo.pycad.co}
+      RELEASE_ID: ${RELEASE_ID:-v1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - '8080'
+
+  caddy:
+    image: caddy:2.8-alpine
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      STAGING_HOST: ${STAGING_HOST:-implant-demo.pycad.co}
+      STAGING_EMAIL: ${STAGING_EMAIL:-ops@pycad.co}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
