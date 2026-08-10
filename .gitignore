@@ -9,3 +9,4 @@ deploy/gcp/.env
 *.png
 test-results/
 playwright-report/
+deploy-dist.tgz
