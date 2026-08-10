@@ -24,19 +24,24 @@ export function resolveEmbedBaseUrl(script: HTMLScriptElement | null): string {
 }
 
 export function applyContainerStyles(element: HTMLElement, layout: EmbedLayout) {
+  const minHeightPx = layout === 'full' ? `${FULL_MIN_HEIGHT}px` : `${SECTION_MIN_HEIGHT}px`;
   element.style.position = element.style.position || 'relative';
   element.style.width = element.style.width || '100%';
-  element.style.minHeight = layout === 'full' ? `${FULL_MIN_HEIGHT}px` : `${SECTION_MIN_HEIGHT}px`;
+  element.style.minHeight = minHeightPx;
+  element.style.height = element.style.height || minHeightPx;
   element.style.display = element.style.display || 'block';
   element.style.overflow = 'hidden';
 }
 
-export function createPlaceholder(layout: EmbedLayout): HTMLDivElement {
+export function createPlaceholder(_layout: EmbedLayout): HTMLDivElement {
   const placeholder = document.createElement('div');
   placeholder.className = 'pycad-embed-placeholder';
   placeholder.setAttribute('role', 'status');
   placeholder.setAttribute('aria-live', 'polite');
   placeholder.style.cssText = [
+    'position:absolute',
+    'inset:0',
+    'z-index:1',
     'display:flex',
     'align-items:center',
     'justify-content:center',
@@ -47,8 +52,7 @@ export function createPlaceholder(layout: EmbedLayout): HTMLDivElement {
     'color:#9aa3b2',
     'font:500 14px/1.4 system-ui,sans-serif',
   ].join(';');
-  placeholder.textContent =
-    layout === 'full' ? 'Loading PYCAD demo…' : 'Loading interactive implant demo…';
+  placeholder.textContent = 'Opening the interactive implant demo…';
   return placeholder;
 }
 

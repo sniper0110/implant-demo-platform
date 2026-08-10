@@ -24,3 +24,19 @@ test('staging embed loads model on mobile after CSP fix', async ({ page }) => {
   const wasmErrors = consoleErrors.filter((line) => line.includes('WebAssembly') || line.includes('Could not load'));
   expect(wasmErrors).toEqual([]);
 });
+
+test('staging section fixture loads iframe without user interaction', async ({ page }) => {
+  test.setTimeout(60_000);
+  const embedResponsePromise = page.waitForResponse(
+    (response) => response.url().includes('/e/emb_pycad_staging') && response.ok(),
+    { timeout: 30_000 },
+  );
+  await page.goto(`${STAGING}/tests/fixtures/section-embed.html`);
+  const embedResponse = await embedResponsePromise;
+  expect(embedResponse.ok()).toBeTruthy();
+
+  const iframe = page.locator('iframe[title="PYCAD Interactive Implant Demo"]');
+  await expect(iframe).toBeVisible({ timeout: 10_000 });
+  await expect(iframe).not.toHaveAttribute('loading', 'lazy');
+  await expect(page.locator('.pycad-embed-placeholder')).toBeHidden({ timeout: 30_000 });
+});

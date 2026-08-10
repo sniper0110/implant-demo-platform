@@ -638,3 +638,59 @@ a:hover {
     transform: rotate(360deg);
   }
 }
+
+.embed-loading-progress {
+  gap: 16px;
+}
+
+.embed-progress-ring {
+  position: relative;
+  width: 88px;
+  height: 88px;
+}
+
+.embed-progress-ring svg {
+  transform: rotate(-90deg);
+}
+
+.embed-progress-track,
+.embed-progress-fill {
+  fill: none;
+  stroke-width: 6;
+}
+
+.embed-progress-track {
+  stroke: var(--graphite-700);
+}
+
+.embed-progress-fill {
+  stroke: var(--gold);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s ease;
+}
+
+.embed-progress-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.embed-progress-primary {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.embed-progress-hint {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}

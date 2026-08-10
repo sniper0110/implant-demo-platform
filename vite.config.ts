@@ -10,6 +10,19 @@ export default defineConfig({
     __RELEASE_ID__: JSON.stringify(releaseId),
   },
   build: {
+    modulePreload: {
+      resolveDependencies: (filename, deps) => {
+        const normalized = filename.replace(/\\/g, '/');
+        if (!normalized.includes('embed')) return deps;
+        return deps.filter(
+          (dep) =>
+            !dep.includes('three') &&
+            !dep.includes('drei') &&
+            !dep.includes('r3f') &&
+            !dep.includes('/scene-'),
+        );
+      },
+    },
     outDir: 'dist',
     rollupOptions: {
       input: {
@@ -24,6 +37,13 @@ export default defineConfig({
           }
 
           const normalized = id.replace(/\\/g, '/');
+          if (
+            normalized.includes('node_modules/react-dom') ||
+            normalized.includes('node_modules/react/') ||
+            normalized.includes('node_modules/scheduler')
+          ) {
+            return 'react';
+          }
           if (normalized.includes('/three/') || normalized.endsWith('/three')) return 'three';
           if (normalized.includes('@react-three/fiber')) return 'r3f';
           if (normalized.includes('@react-three/drei')) return 'drei';

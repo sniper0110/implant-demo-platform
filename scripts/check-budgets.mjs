@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST = join(ROOT, 'dist');
+const RELEASE_ID = process.env.VITE_RELEASE_ID ?? process.env.RELEASE_ID ?? 'v1';
 
 const BUDGETS = {
   loaderGzipBytes: 10 * 1024,
@@ -17,7 +18,8 @@ const BUDGETS = {
   runtime3dGzipBytes: 350 * 1024,
   initialInteractiveGzipBytes: 512 * 1024,
   initialModelGzipBytes: Math.ceil(5.25 * 1024 * 1024),
-  mobileModelGzipBytes: Math.ceil(5.25 * 1024 * 1024),
+  mobileModelRawBytes: Math.ceil(3.5 * 1024 * 1024),
+  mobileModelGzipBytes: Math.ceil(2.5 * 1024 * 1024),
   detailModelBytes: 12 * 1024 * 1024,
 };
 
@@ -54,9 +56,10 @@ function pass(msg) {
 async function main() {
   const loaderPath = join(DIST, 'embed', 'v1.js');
   const assetsDir = join(DIST, 'assets');
-  const initialModelPath = join(DIST, 'models', 'lumbar-fusion-initial.glb');
-  const mobileModelPath = join(DIST, 'models', 'lumbar-fusion-mobile.glb');
-  const detailModelPath = join(DIST, 'models', 'lumbar-fusion-detail.glb');
+  const versionedModelsDir = join(DIST, 'assets', RELEASE_ID, 'models');
+  const initialModelPath = join(versionedModelsDir, 'lumbar-fusion-initial.glb');
+  const mobileModelPath = join(versionedModelsDir, 'lumbar-fusion-mobile.glb');
+  const detailModelPath = join(versionedModelsDir, 'lumbar-fusion-detail.glb');
   const legacyModelPath = join(DIST, 'models', 'lumbar-fusion.glb');
 
   try {
@@ -130,29 +133,41 @@ async function main() {
   }
 
   try {
+    const initialBytes = await fileSize(initialModelPath);
     const modelGzip = await gzipSize(initialModelPath);
     if (modelGzip > BUDGETS.initialModelGzipBytes) {
       fail(`Initial model ${modelGzip} bytes gzip > ${BUDGETS.initialModelGzipBytes}`);
     } else {
-      pass(`Initial model ${modelGzip} bytes gzip (loaded after viewport visibility)`);
+      pass(`Initial model ${modelGzip} bytes gzip`);
     }
 
+    const mobileBytes = await fileSize(mobileModelPath);
     const mobileGzip = await gzipSize(mobileModelPath);
+    if (mobileBytes > BUDGETS.mobileModelRawBytes) {
+      fail(`Mobile model ${mobileBytes} bytes raw > ${BUDGETS.mobileModelRawBytes}`);
+    } else {
+      pass(`Mobile model ${mobileBytes} bytes raw`);
+    }
     if (mobileGzip > BUDGETS.mobileModelGzipBytes) {
       fail(`Mobile model ${mobileGzip} bytes gzip > ${BUDGETS.mobileModelGzipBytes}`);
     } else {
       pass(`Mobile model ${mobileGzip} bytes gzip`);
     }
 
-    if (mobileGzip > modelGzip) {
-      fail(`Mobile model must not exceed initial (${mobileGzip} > ${modelGzip})`);
-    } else if (mobileGzip < modelGzip) {
-      pass(`Mobile model smaller than initial (${mobileGzip} < ${modelGzip})`);
+    if (mobileBytes >= initialBytes) {
+      fail(`Mobile model must be smaller than initial (${mobileBytes} >= ${initialBytes})`);
     } else {
-      pass(`Mobile model matches initial size (${mobileGzip} bytes gzip)`);
+      pass(`Mobile model smaller than initial (${mobileBytes} < ${initialBytes})`);
+    }
+
+    try {
+      await stat(`${mobileModelPath}.gz`);
+      pass('Mobile model gzip sidecar present');
+    } catch {
+      fail(`Missing ${mobileModelPath}.gz sidecar`);
     }
   } catch {
-    fail(`No initial/mobile model found at ${initialModelPath} / ${mobileModelPath}`);
+    fail(`No initial/mobile model found under ${versionedModelsDir}`);
   }
 
   try {

@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import type { EmbedRepository } from '../config/types.js';
+import { renderEmbedHtml } from '../embedHtml.js';
 import { cspForEmbed, toPublicConfig, toRuntimeConfig } from '../security/csp.js';
 
 interface ConfigRouteDeps {
   repository: EmbedRepository;
   assetBaseUrl: string;
   publicBaseUrl: string;
+  staticRoot: string;
 }
 
 export async function registerConfigRoutes(app: FastifyInstance, deps: ConfigRouteDeps) {
@@ -34,6 +36,8 @@ export async function registerEmbedRoutes(app: FastifyInstance, deps: ConfigRout
 
     reply.header('Content-Security-Policy', cspForEmbed(record));
     reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-    return reply.sendFile('embed.html');
+    const runtime = toRuntimeConfig(record, deps.assetBaseUrl, deps.publicBaseUrl);
+    const html = await renderEmbedHtml(deps.staticRoot, toPublicConfig(runtime));
+    return reply.type('text/html').send(html);
   });
 }

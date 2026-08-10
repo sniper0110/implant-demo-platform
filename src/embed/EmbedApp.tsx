@@ -1,17 +1,26 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getStorySteps, getDefaultStepIndex } from '../data/story';
 import type { ViewToggles } from '../types';
-import type { EmbedLayout, EmbedRuntimeConfig } from './config';
+import type { EmbedConfigResponse, EmbedLayout, EmbedRuntimeConfig } from './config';
 import { resolveInitialModelPath, resolveModelUrl, toPublicConfig } from './config';
-import { detectWebGLSupport, isCoarsePointerDevice, resolveDeviceTier } from './deviceTier';
+import { canUpgradeModelQuality, detectWebGLSupport, isCoarsePointerDevice, resolveDeviceTier } from './deviceTier';
 import { parseParentMessage } from './messages';
+import {
+  downloadModelBlobUrl,
+  readInlinedConfig,
+  subscribeModelProgress,
+  type DownloadProgress,
+} from './modelDownload';
 import { createEmbedTelemetry } from './telemetry';
+import { LoadingProgress } from './LoadingProgress';
 import { InfoPanel } from '../components/InfoPanel';
 import { StoryProgress } from '../components/StoryProgress';
 import { Disclaimer } from '../components/Disclaimer';
-import { SpineScene } from '../scene/SpineScene';
-import { preloadLumbarModel } from '../scene/preloadScene';
+import { preloadSceneModule } from '../scene/preloadScene';
 
+const SpineScene = lazy(() =>
+  import('../scene/SpineScene').then((module) => ({ default: module.SpineScene })),
+);
 function getEmbedIdFromPath(): string {
   const match = window.location.pathname.match(/\/e\/([^/?#]+)/);
   return match?.[1] ? decodeURIComponent(match[1]) : 'demo';
@@ -21,6 +30,15 @@ function getLayoutFromQuery(defaultLayout: EmbedLayout): EmbedLayout {
   const params = new URLSearchParams(window.location.search);
   const layout = params.get('layout');
   return layout === 'full' ? 'full' : layout === 'section' ? 'section' : defaultLayout;
+}
+
+function buildRuntimeConfig(data: EmbedConfigResponse, embedId: string): EmbedRuntimeConfig {
+  return {
+    ...data,
+    embedId,
+    allowedOrigins: [],
+    standaloneUrl: window.location.href,
+  };
 }
 
 async function fetchEmbedConfig(embedId: string): Promise<EmbedRuntimeConfig> {
@@ -47,15 +65,6 @@ function StaticFallback({ message }: { message: string }) {
   );
 }
 
-function LoadingShell({ label }: { label: string }) {
-  return (
-    <div className="embed-loading-shell" aria-live="polite">
-      <div className="embed-loading-spinner" aria-hidden="true" />
-      <p>{label}</p>
-    </div>
-  );
-}
-
 function useCompactLayout(): boolean {
   const [compact, setCompact] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false,
@@ -74,11 +83,21 @@ function useCompactLayout(): boolean {
 
 export function EmbedApp() {
   const embedId = getEmbedIdFromPath();
-  const [config, setConfig] = useState<EmbedRuntimeConfig | null>(null);
+  const [config, setConfig] = useState<EmbedRuntimeConfig | null>(() => {
+    const inlined = readInlinedConfig(embedId);
+    if (!inlined) return null;
+    return buildRuntimeConfig(inlined, embedId);
+  });
   const [error, setError] = useState<string | null>(null);
-  const [layout, setLayout] = useState<EmbedLayout>('section');
+  const [layout, setLayout] = useState<EmbedLayout>(() => {
+    const inlined = readInlinedConfig(embedId);
+    return getLayoutFromQuery(inlined?.layout ?? 'section');
+  });
   const [sceneVisible, setSceneVisible] = useState(true);
   const [sceneError, setSceneError] = useState<string | null>(null);
+  const [modelBlobUrl, setModelBlobUrl] = useState<string | null>(null);
+  const [modelDownloadError, setModelDownloadError] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [webglSupported] = useState(() => detectWebGLSupport());
   const rootRef = useRef<HTMLDivElement>(null);
   const compactLayout = useCompactLayout();
@@ -87,6 +106,7 @@ export function EmbedApp() {
   const telemetry = useMemo(() => createEmbedTelemetry(embedId, true), [embedId]);
 
   useEffect(() => {
+    if (config) return;
     let cancelled = false;
     fetchEmbedConfig(embedId)
       .then((loaded) => {
@@ -102,7 +122,7 @@ export function EmbedApp() {
     return () => {
       cancelled = true;
     };
-  }, [embedId, telemetry]);
+  }, [config, embedId, telemetry]);
 
   useEffect(() => {
     if (!config) return;
@@ -124,12 +144,63 @@ export function EmbedApp() {
     return () => window.removeEventListener('message', handler);
   }, [config]);
 
+  const initialModelPath = config ? resolveInitialModelPath(config.models, coarseDevice) : null;
+  const initialModelUrl =
+    config && initialModelPath
+      ? resolveModelUrl(config.assetBaseUrl, config.releaseId, initialModelPath)
+      : null;
+  const fullModelUrl = config
+    ? resolveModelUrl(config.assetBaseUrl, config.releaseId, config.models.initial)
+    : null;
+  const detailModelUrl =
+    !coarseDevice && config?.models.detail
+      ? resolveModelUrl(config.assetBaseUrl, config.releaseId, config.models.detail)
+      : undefined;
+  const upgradeModelUrl =
+    coarseDevice && fullModelUrl && fullModelUrl !== initialModelUrl ? fullModelUrl : undefined;
+  const allowIdleUpgrade = Boolean(upgradeModelUrl && canUpgradeModelQuality());
+
   useEffect(() => {
-    if (!config) return;
-    const modelPath = resolveInitialModelPath(config.models, coarseDevice);
-    const modelUrl = resolveModelUrl(config.assetBaseUrl, config.releaseId, modelPath);
-    preloadLumbarModel(modelUrl);
-  }, [config, coarseDevice]);
+    void preloadSceneModule();
+  }, []);
+
+  useEffect(() => {
+    if (!initialModelUrl) return;
+
+    let revoked: string | null = null;
+    let cancelled = false;
+
+    setModelBlobUrl(null);
+    setModelDownloadError(null);
+    setDownloadProgress(window.__PYCAD_MODEL_PROGRESS__ ?? null);
+
+    const unsubscribe = subscribeModelProgress((progress) => {
+      if (!cancelled) setDownloadProgress({ ...progress });
+    });
+
+    downloadModelBlobUrl(initialModelUrl, (progress) => {
+      if (!cancelled) setDownloadProgress({ ...progress });
+    })
+      .then((blobUrl) => {
+        if (cancelled) {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+        revoked = blobUrl;
+        setModelBlobUrl(blobUrl);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setModelDownloadError(err.message);
+        telemetry.markError('model_download_failed', err.message);
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [initialModelUrl, telemetry]);
 
   useEffect(() => {
     if (!rootRef.current) return;
@@ -235,17 +306,12 @@ export function EmbedApp() {
   if (!config || !activeStep) {
     return (
       <div className={`app embed-app layout-${layout}`} ref={rootRef}>
-        <LoadingShell label="Loading embed configuration…" />
+        <LoadingProgress progress={downloadProgress} />
       </div>
     );
   }
 
-  const initialModelPath = resolveInitialModelPath(config.models, coarseDevice);
-  const initialModelUrl = resolveModelUrl(config.assetBaseUrl, config.releaseId, initialModelPath);
-  const detailModelUrl =
-    !coarseDevice && config.models.detail
-      ? resolveModelUrl(config.assetBaseUrl, config.releaseId, config.models.detail)
-      : undefined;
+  const sceneModelUrl = modelBlobUrl ?? initialModelUrl ?? '';
 
   return (
     <div className={`app embed-app layout-${layout}`} ref={rootRef} data-embed-id={config.embedId}>
@@ -270,16 +336,22 @@ export function EmbedApp() {
         <section className="scene-area" aria-label="3D product visualization">
           {!webglSupported ? (
             <StaticFallback message="WebGL is unavailable in this browser. Open the standalone demo to view the implant visualization." />
+          ) : modelDownloadError ? (
+            <StaticFallback message={`3D model failed to load. ${modelDownloadError}`} />
           ) : sceneError ? (
             <StaticFallback message={`3D model failed to load. ${sceneError}`} />
+          ) : !modelBlobUrl ? (
+            <LoadingProgress progress={downloadProgress} />
           ) : sceneVisible ? (
-            <Suspense fallback={<LoadingShell label="Loading 3D scene…" />}>
+            <Suspense fallback={<LoadingProgress progress={downloadProgress} parsingScene />}>
               <SpineScene
                 sceneMode={activeStep.sceneMode}
                 productId={activeStep.productId}
                 toggles={toggles}
-                modelUrl={initialModelUrl}
+                modelUrl={sceneModelUrl}
                 detailModelUrl={detailModelUrl}
+                upgradeModelUrl={upgradeModelUrl}
+                allowIdleUpgrade={allowIdleUpgrade}
                 qualityTier={deviceTier}
                 onSceneLoaded={() => telemetry.markLoaded()}
                 onFirstFrame={() => telemetry.markFirstFrame()}
@@ -290,7 +362,7 @@ export function EmbedApp() {
               />
             </Suspense>
           ) : (
-            <LoadingShell label="Preparing interactive demo…" />
+            <LoadingProgress progress={downloadProgress} />
           )}
 
           {config.controls.storyNavigation && (

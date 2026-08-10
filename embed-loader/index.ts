@@ -41,16 +41,17 @@ function clearContainer(container: HTMLElement) {
 function mountIframe(entry: MountedEmbed, baseUrl: string) {
   if (entry.mounted || entry.iframe) return;
 
-  const placeholder = createPlaceholder(entry.layout);
   clearContainer(entry.container);
-  entry.container.appendChild(placeholder);
 
   const iframe = document.createElement('iframe');
   iframe.title = 'PYCAD Interactive Implant Demo';
-  iframe.loading = 'lazy';
   iframe.allow = 'fullscreen';
   iframe.style.cssText = 'border:0;width:100%;height:100%;min-height:inherit;display:block;background:#0a0b0d';
   iframe.src = buildIframeSrc(baseUrl, entry.embedId, entry.layout);
+
+  const placeholder = createPlaceholder(entry.layout);
+  entry.container.appendChild(iframe);
+  entry.container.appendChild(placeholder);
 
   iframe.addEventListener('load', () => {
     placeholder.remove();
@@ -60,7 +61,6 @@ function mountIframe(entry: MountedEmbed, baseUrl: string) {
     showError(entry, baseUrl, 'Unable to load the demo iframe.');
   });
 
-  entry.container.appendChild(iframe);
   entry.iframe = iframe;
   entry.mounted = true;
 }

@@ -1,3 +1,5 @@
+import { createReadStream } from 'node:fs';
+import { access } from 'node:fs/promises';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -45,10 +47,11 @@ export async function buildApp() {
   await fastify.register(helmet, {
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
-    // Loader script is included from customer origins (e.g. pycad.co).
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginOpenerPolicy: { policy: 'unsafe-none' },
     frameguard: false,
+    // Preserve long-lived cache headers set for versioned assets.
+    noSniff: true,
   });
   await fastify.register(cors, { origin: true });
   await fastify.register(rateLimit, { max: 300, timeWindow: '1 minute' });
@@ -58,6 +61,35 @@ export async function buildApp() {
     staticRoot.startsWith('/') || /^[A-Za-z]:[\\/]/.test(staticRoot)
       ? staticRoot
       : join(process.cwd(), staticRoot);
+
+  fastify.get('/assets/:releaseId/models/:filename', async (request, reply) => {
+    const { releaseId, filename } = request.params as { releaseId: string; filename: string };
+    if (!/^[\w.-]+\.glb$/i.test(filename)) {
+      return reply.code(404).send({ error: 'not_found' });
+    }
+
+    const modelPath = join(distRoot, 'assets', releaseId, 'models', filename);
+    const gzipPath = `${modelPath}.gz`;
+    const accept = String(request.headers['accept-encoding'] ?? '');
+
+    reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+    reply.header('Vary', 'Accept-Encoding');
+
+    if (accept.includes('gzip')) {
+      try {
+        await access(gzipPath);
+        reply.header('Content-Type', 'model/gltf-binary');
+        reply.header('Content-Encoding', 'gzip');
+        return reply.send(createReadStream(gzipPath));
+      } catch {
+        // fall through to raw asset
+      }
+    }
+
+    reply.header('Content-Type', 'model/gltf-binary');
+    return reply.send(createReadStream(modelPath));
+  });
+
   await fastify.register(staticPlugin, {
     root: distRoot,
     prefix: '/',
@@ -90,7 +122,7 @@ export async function buildApp() {
     repository = createDefaultRepository();
   }
 
-  const deps = { repository, assetBaseUrl, publicBaseUrl };
+  const deps = { repository, assetBaseUrl, publicBaseUrl, staticRoot: distRoot };
   await registerConfigRoutes(fastify, deps);
   await registerEmbedRoutes(fastify, deps);
 

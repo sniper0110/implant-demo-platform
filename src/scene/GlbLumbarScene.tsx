@@ -11,7 +11,9 @@ interface GlbLumbarSceneProps {
   toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
   modelUrl?: string;
   detailModelUrl?: string;
+  upgradeModelUrl?: string;
   allowDetailUpgrade?: boolean;
+  allowIdleUpgrade?: boolean;
   onSceneLoaded?: () => void;
   onFirstFrame?: () => void;
   children?: React.ReactNode;
@@ -174,17 +176,21 @@ export function GlbLumbarScene({
   toggles,
   modelUrl = LUMBAR_FUSION_GLB_URL,
   detailModelUrl,
+  upgradeModelUrl,
   allowDetailUpgrade = false,
+  allowIdleUpgrade = false,
   onSceneLoaded,
   onFirstFrame,
   children,
 }: GlbLumbarSceneProps) {
   const [activeUrl, setActiveUrl] = useState(modelUrl);
   const [upgraded, setUpgraded] = useState(false);
+  const firstFrameSeen = useRef(false);
 
   useEffect(() => {
     setActiveUrl(modelUrl);
     setUpgraded(false);
+    firstFrameSeen.current = false;
   }, [modelUrl]);
 
   useEffect(() => {
@@ -199,12 +205,27 @@ export function GlbLumbarScene({
     return () => window.removeEventListener('pointerdown', upgrade);
   }, [allowDetailUpgrade, detailModelUrl, upgraded]);
 
+  const handleFirstFrame = () => {
+    onFirstFrame?.();
+    if (firstFrameSeen.current) return;
+    firstFrameSeen.current = true;
+
+    if (!allowIdleUpgrade || !upgradeModelUrl || upgraded || activeUrl === upgradeModelUrl) return;
+
+    window.setTimeout(() => {
+      if (upgraded || activeUrl === upgradeModelUrl) return;
+      useGLTF.preload(upgradeModelUrl);
+      setActiveUrl(upgradeModelUrl);
+      setUpgraded(true);
+    }, 5000);
+  };
+
   return (
     <LumbarSceneModel
       url={activeUrl}
       toggles={toggles}
       onSceneLoaded={onSceneLoaded}
-      onFirstFrame={onFirstFrame}
+      onFirstFrame={handleFirstFrame}
     >
       {children}
     </LumbarSceneModel>

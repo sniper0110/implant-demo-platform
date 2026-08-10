@@ -117,6 +117,14 @@ export function resolveDeviceTier(): DeviceTierResult {
   };
 }
 
+export function canUpgradeModelQuality(): boolean {
+  const connection = getConnection();
+  if (connection?.saveData === true) return false;
+  const effectiveType = connection?.effectiveType;
+  if (!effectiveType) return false;
+  return effectiveType === '4g';
+}
+
 export function isNearViewport(element: Element, rootMargin = '200px'): boolean {
   const rect = element.getBoundingClientRect();
   const margin = parseInt(rootMargin, 10) || 200;
