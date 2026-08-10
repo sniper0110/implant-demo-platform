@@ -10,3 +10,5 @@ deploy/gcp/.env
 test-results/
 playwright-report/
 deploy-dist.tgz
+deploy-server.tgz
+public/models/_*.glb
