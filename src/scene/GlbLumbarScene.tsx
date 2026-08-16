@@ -6,6 +6,7 @@ import type { ViewToggles } from '../types';
 import { classifySceneNode, LUMBAR_FUSION_GLB_URL } from './sceneAssetConfig';
 import { GlbSceneLayoutProvider, type GlbSceneLayout } from './GlbSceneLayoutContext';
 import { applyDefaultModelOrientation } from './glbOrientation';
+import { createN2BBoneMaterial } from './n2bBoneMaterial';
 
 interface GlbLumbarSceneProps {
   toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
@@ -92,6 +93,15 @@ function setMeshesVisible(meshes: Mesh[], visible: boolean) {
   }
 }
 
+function applyN2BBoneMaterial(meshes: Mesh[]) {
+  for (const mesh of meshes) {
+    mesh.geometry.computeVertexNormals();
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.material = createN2BBoneMaterial();
+  }
+}
+
 function ModelLoadReporter({ onLoaded }: { onLoaded?: () => void }) {
   const reported = useRef(false);
 
@@ -136,6 +146,7 @@ function LumbarSceneModel({
     const cloned = cloneSceneGraph(scene);
     applyDefaultModelOrientation(cloned);
     const grouped = collectGroupedMeshes(cloned);
+    applyN2BBoneMaterial(grouped.spine);
     return {
       root: cloned,
       groupedMeshes: grouped,
