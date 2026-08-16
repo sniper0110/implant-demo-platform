@@ -38,6 +38,7 @@ const CAMERA_FIT_PADDING: Record<SceneMode, number> = {
   'full-construct': 1.75,
   'interbody-cage': 1.55,
   'pedicle-system': 1.7,
+  vad: 1.65,
 };
 
 export function computeCameraFitDistance(
