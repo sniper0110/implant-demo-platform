@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { Box3, Vector3, type Group, type Mesh } from 'three';
-import type { ViewToggles } from '../types';
-import { classifySceneNode, LUMBAR_FUSION_GLB_URL } from './sceneAssetConfig';
+import type { ViewToggles, SceneMode } from '../types';
+import { classifySceneNode, isL4OrL5SpineMesh, LUMBAR_FUSION_GLB_URL } from './sceneAssetConfig';
 import { GlbSceneLayoutProvider, type GlbSceneLayout } from './GlbSceneLayoutContext';
-import { applyDefaultModelOrientation } from './glbOrientation';
-import { getN2BBoneMaterial, setN2BBoneMaterialOpacity } from './n2bBoneMaterial';
+import { applyDefaultModelOrientation, centerModelOnMeshes } from './glbOrientation';
+import { configureN2BBoneNoiseScale, getN2BBoneMaterial, setN2BBoneMaterialOpacity } from './n2bBoneMaterial';
 
 interface GlbLumbarSceneProps {
+  sceneMode: SceneMode;
   toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
   modelUrl?: string;
   detailModelUrl?: string;
@@ -38,9 +39,18 @@ function getMeshWorldCenter(mesh: Mesh): [number, number, number] {
   return [center.x, center.y, center.z];
 }
 
+function buildActiveFocusMeshes(grouped: GroupedMeshes): Mesh[] {
+  return [
+    ...grouped.spine.filter((mesh) => isL4OrL5SpineMesh(mesh.name)),
+    ...grouped.cage,
+    ...grouped.pedicleScrews,
+  ];
+}
+
 function buildSceneLayout(root: Group, grouped: GroupedMeshes): GlbSceneLayout {
+  const activeSpine = grouped.spine.filter((mesh) => isL4OrL5SpineMesh(mesh.name));
   const spineCenters: Record<string, [number, number, number]> = {};
-  for (const mesh of grouped.spine) {
+  for (const mesh of activeSpine) {
     spineCenters[mesh.name] = getMeshWorldCenter(mesh);
   }
 
@@ -49,7 +59,7 @@ function buildSceneLayout(root: Group, grouped: GroupedMeshes): GlbSceneLayout {
     spineCenters,
     cageCenter: grouped.cage[0] ? getMeshWorldCenter(grouped.cage[0]) : null,
     screwCenters: grouped.pedicleScrews.map((mesh) => getMeshWorldCenter(mesh)),
-    focusMeshes: grouped.all,
+    focusMeshes: buildActiveFocusMeshes(grouped),
   };
 }
 
@@ -81,7 +91,14 @@ function setMeshesVisible(meshes: Mesh[], visible: boolean) {
   }
 }
 
+function applySpineVisibility(meshes: Mesh[], anatomyVisible: boolean) {
+  for (const mesh of meshes) {
+    mesh.visible = anatomyVisible && isL4OrL5SpineMesh(mesh.name);
+  }
+}
+
 function applyN2BBoneMaterial(meshes: Mesh[]) {
+  configureN2BBoneNoiseScale(meshes);
   const material = getN2BBoneMaterial();
   for (const mesh of meshes) {
     mesh.castShadow = true;
@@ -114,14 +131,28 @@ function FirstFrameReporter({ onFirstFrame }: { onFirstFrame?: () => void }) {
   return null;
 }
 
+function resolveSceneVisibility(
+  sceneMode: SceneMode,
+  toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>,
+) {
+  const anatomyVisible = toggles.anatomyOpacity > 0;
+  return {
+    anatomyVisible,
+    cageVisible: toggles.cage && sceneMode !== 'pedicle-system',
+    pedicleScrewsVisible: toggles.pedicleScrews && sceneMode !== 'interbody-cage',
+  };
+}
+
 function LumbarSceneModel({
   url,
+  sceneMode,
   toggles,
   onSceneLoaded,
   onFirstFrame,
   children,
 }: {
   url: string;
+  sceneMode: SceneMode;
   toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
   onSceneLoaded?: () => void;
   onFirstFrame?: () => void;
@@ -135,6 +166,8 @@ function LumbarSceneModel({
     applyDefaultModelOrientation(cloned);
     const grouped = collectGroupedMeshes(cloned);
     applyN2BBoneMaterial(grouped.spine);
+    applySpineVisibility(grouped.spine, true);
+    centerModelOnMeshes(cloned, buildActiveFocusMeshes(grouped));
     return {
       root: cloned,
       groupedMeshes: grouped,
@@ -153,12 +186,12 @@ function LumbarSceneModel({
   }, [groupedMeshes.spine, toggles.anatomyOpacity, invalidate]);
 
   useEffect(() => {
-    const spineVisible = toggles.anatomyOpacity > 0;
-    setMeshesVisible(groupedMeshes.spine, spineVisible);
-    setMeshesVisible(groupedMeshes.cage, toggles.cage);
-    setMeshesVisible(groupedMeshes.pedicleScrews, toggles.pedicleScrews);
+    const visibility = resolveSceneVisibility(sceneMode, toggles);
+    applySpineVisibility(groupedMeshes.spine, visibility.anatomyVisible);
+    setMeshesVisible(groupedMeshes.cage, visibility.cageVisible);
+    setMeshesVisible(groupedMeshes.pedicleScrews, visibility.pedicleScrewsVisible);
     invalidate();
-  }, [groupedMeshes, toggles.anatomyOpacity, toggles.cage, toggles.pedicleScrews, invalidate]);
+  }, [groupedMeshes, sceneMode, toggles.anatomyOpacity, toggles.cage, toggles.pedicleScrews, invalidate]);
 
   return (
     <GlbSceneLayoutProvider value={layout}>
@@ -171,6 +204,7 @@ function LumbarSceneModel({
 }
 
 export function GlbLumbarScene({
+  sceneMode,
   toggles,
   modelUrl = LUMBAR_FUSION_GLB_URL,
   detailModelUrl,
@@ -221,6 +255,7 @@ export function GlbLumbarScene({
   return (
     <LumbarSceneModel
       url={activeUrl}
+      sceneMode={sceneMode}
       toggles={toggles}
       onSceneLoaded={onSceneLoaded}
       onFirstFrame={handleFirstFrame}

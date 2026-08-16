@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { getStorySteps, getDefaultStepIndex } from './data/story';
+import { getStorySteps, getDefaultStepIndex, getNextStepIndex, getPreviousStepIndex } from './data/story';
 import type { ViewToggles } from './types';
 import { InfoPanel } from './components/InfoPanel';
 import { StoryProgress } from './components/StoryProgress';
@@ -29,11 +29,11 @@ export default function App() {
   }, []);
 
   const handlePrevious = useCallback(() => {
-    handleStepChange(Math.max(0, activeStepIndex - 1));
+    handleStepChange(getPreviousStepIndex(activeStepIndex, LUMBAR_STORY_STEPS.length));
   }, [activeStepIndex, handleStepChange]);
 
   const handleNext = useCallback(() => {
-    handleStepChange(Math.min(LUMBAR_STORY_STEPS.length - 1, activeStepIndex + 1));
+    handleStepChange(getNextStepIndex(activeStepIndex, LUMBAR_STORY_STEPS.length));
   }, [activeStepIndex, handleStepChange]);
 
   const handleToggle = useCallback((key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels'>) => {

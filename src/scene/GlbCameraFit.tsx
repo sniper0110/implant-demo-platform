@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import type { Group, Object3D, PerspectiveCamera } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -9,12 +9,22 @@ interface GlbCameraFitProps {
   root: Group;
   sceneMode: SceneMode;
   focusMeshes: Object3D[];
+  anatomyOpacity: number;
+  showCage: boolean;
+  showPedicleScrews: boolean;
 }
 
-export function GlbCameraFit({ root, sceneMode, focusMeshes }: GlbCameraFitProps) {
+export function GlbCameraFit({
+  root,
+  sceneMode,
+  focusMeshes,
+  anatomyOpacity,
+  showCage,
+  showPedicleScrews,
+}: GlbCameraFitProps) {
   const { camera, controls, invalidate } = useThree();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const objects = getFitObjects(root, sceneMode, focusMeshes);
     fitCameraToObjects(
       objects,
@@ -23,7 +33,7 @@ export function GlbCameraFit({ root, sceneMode, focusMeshes }: GlbCameraFitProps
       sceneMode,
     );
     invalidate();
-  }, [root, sceneMode, focusMeshes, camera, controls, invalidate]);
+  }, [root, sceneMode, focusMeshes, anatomyOpacity, showCage, showPedicleScrews, camera, controls, invalidate]);
 
   return null;
 }

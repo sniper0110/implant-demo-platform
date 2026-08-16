@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getStorySteps, getDefaultStepIndex } from '../data/story';
+import { getStorySteps, getDefaultStepIndex, getNextStepIndex, getPreviousStepIndex } from '../data/story';
 import type { ViewToggles } from '../types';
 import type { EmbedConfigResponse, EmbedLayout, EmbedRuntimeConfig } from './config';
 import { resolveInitialModelPath, resolveModelUrl, toPublicConfig } from './config';
@@ -280,11 +280,11 @@ export function EmbedApp() {
   );
 
   const handlePrevious = useCallback(() => {
-    handleStepChange(Math.max(0, activeStepIndex - 1));
-  }, [activeStepIndex, handleStepChange]);
+    handleStepChange(getPreviousStepIndex(activeStepIndex, storySteps.length));
+  }, [activeStepIndex, handleStepChange, storySteps.length]);
 
   const handleNext = useCallback(() => {
-    handleStepChange(Math.min(storySteps.length - 1, activeStepIndex + 1));
+    handleStepChange(getNextStepIndex(activeStepIndex, storySteps.length));
   }, [activeStepIndex, handleStepChange, storySteps.length]);
 
   const handleToggle = useCallback((key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels'>) => {

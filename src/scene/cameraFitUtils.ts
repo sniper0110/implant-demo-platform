@@ -1,4 +1,4 @@
-import { Box3, Vector3, type Object3D, type PerspectiveCamera } from 'three';
+import { Box3, MathUtils, Vector3, type Mesh, type Object3D, type PerspectiveCamera } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import type { SceneMode } from '../types';
 import { classifySceneNode } from './sceneAssetConfig';
@@ -6,29 +6,68 @@ import { classifySceneNode } from './sceneAssetConfig';
 export function getFitObjects(root: Object3D, sceneMode: SceneMode, focusMeshes: Object3D[]): Object3D[] {
   switch (sceneMode) {
     case 'interbody-cage': {
-      const cageObjects = focusMeshes.filter((obj) => classifySceneNode(obj.name) === 'cage');
-      return cageObjects.length > 0 ? cageObjects : [root];
+      const cageObjects = focusMeshes.filter((obj) => classifySceneNode(obj.name) === 'cage' && obj.visible);
+      const spineObjects = focusMeshes.filter((obj) => classifySceneNode(obj.name) === 'spine' && obj.visible);
+      const combined = [...spineObjects, ...cageObjects];
+      return combined.length > 0 ? combined : cageObjects.length > 0 ? cageObjects : [root];
     }
     case 'pedicle-system': {
-      const screwObjects = focusMeshes.filter((obj) => classifySceneNode(obj.name) === 'pedicleScrew');
-      return screwObjects.length > 0 ? screwObjects : [root];
+      const screwObjects = focusMeshes.filter((obj) => classifySceneNode(obj.name) === 'pedicleScrew' && obj.visible);
+      const spineObjects = focusMeshes.filter((obj) => classifySceneNode(obj.name) === 'spine' && obj.visible);
+      const combined = [...spineObjects, ...screwObjects];
+      return combined.length > 0 ? combined : screwObjects.length > 0 ? screwObjects : [root];
     }
     case 'full-construct':
-    default:
-      return [root];
+    default: {
+      const visible = focusMeshes.filter((obj) => obj.visible);
+      return visible.length > 0 ? visible : focusMeshes.length > 0 ? focusMeshes : [root];
+    }
   }
 }
 
-export function getCameraOffset(sceneMode: SceneMode, maxDim: number): Vector3 {
+function expandVisibleBounds(box: Box3, object: Object3D) {
+  object.traverse((child) => {
+    if (!child.visible) return;
+    if ('isMesh' in child && (child as Mesh).isMesh) {
+      box.expandByObject(child);
+    }
+  });
+}
+
+const CAMERA_FIT_PADDING: Record<SceneMode, number> = {
+  'full-construct': 1.75,
+  'interbody-cage': 1.55,
+  'pedicle-system': 1.7,
+};
+
+export function computeCameraFitDistance(
+  camera: PerspectiveCamera,
+  size: Vector3,
+  padding: number,
+): number {
+  const maxSize = Math.max(size.x, size.y, size.z, 1);
+  const halfFov = MathUtils.degToRad(camera.fov) / 2;
+  const fitHeightDistance = maxSize / (2 * Math.tan(halfFov));
+  const fitWidthDistance = fitHeightDistance / Math.max(camera.aspect, 0.25);
+  return Math.max(fitHeightDistance, fitWidthDistance) * padding;
+}
+
+/**
+ * Unit direction from scene center toward the camera position.
+ * After the GLB −90° X rotation, +Z is anterior and −Z is posterior.
+ */
+export function getCameraOffset(sceneMode: SceneMode): Vector3 {
   switch (sceneMode) {
     case 'interbody-cage':
-      return new Vector3(maxDim * 0.55, maxDim * 0.15, maxDim * 0.85);
+      // Anterior-lateral — disc space and cage footprint.
+      return new Vector3(0.48, 0.24, 0.9);
     case 'pedicle-system':
-      return new Vector3(-maxDim * 0.75, maxDim * 0.25, maxDim * 0.65);
+      // Right posterior-elevated — exposes screw heads, rods, and connectors.
+      return new Vector3(0.72, 0.42, -0.98);
     case 'full-construct':
     default:
-      // Posterior-elevated view with the construct horizontal across the viewport.
-      return new Vector3(maxDim * 0.02, maxDim * 0.42, maxDim * 0.88);
+      // Left lateral-oblique overview: bodies toward +Z (screen-left), posterior hardware toward −Z.
+      return new Vector3(-0.86, 0.24, 0.42);
   }
 }
 
@@ -40,7 +79,7 @@ export function fitCameraToObjects(
 ) {
   const box = new Box3();
   for (const object of objects) {
-    box.expandByObject(object);
+    expandVisibleBounds(box, object);
   }
 
   if (box.isEmpty()) return;
@@ -48,18 +87,20 @@ export function fitCameraToObjects(
   const center = box.getCenter(new Vector3());
   const size = box.getSize(new Vector3());
   const maxDim = Math.max(size.x, size.y, size.z, 1);
-  const offset = getCameraOffset(sceneMode, maxDim);
+  const padding = CAMERA_FIT_PADDING[sceneMode] ?? CAMERA_FIT_PADDING['full-construct'];
+  const direction = getCameraOffset(sceneMode).normalize();
+  const distance = computeCameraFitDistance(camera, size, padding);
 
-  camera.position.copy(center.clone().add(offset));
+  camera.position.copy(center.clone().add(direction.multiplyScalar(distance)));
   camera.near = Math.max(maxDim / 500, 0.01);
-  camera.far = Math.max(maxDim * 20, 1000);
+  camera.far = Math.max(distance * 8, maxDim * 20, 1000);
   camera.updateProjectionMatrix();
   camera.lookAt(center);
 
   if (controls) {
     controls.target.copy(center);
-    controls.minDistance = maxDim * 0.25;
-    controls.maxDistance = maxDim * 4;
+    controls.minDistance = distance * 0.25;
+    controls.maxDistance = distance * 5;
     controls.update();
   }
 }

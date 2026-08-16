@@ -1,4 +1,4 @@
-import { Color, MeshPhysicalMaterial } from 'three';
+import { Box3, Color, MeshPhysicalMaterial, Vector3, type Mesh } from 'three';
 
 interface N2BShader {
   uniforms: Record<string, { value: number }>;
@@ -6,7 +6,7 @@ interface N2BShader {
   fragmentShader: string;
 }
 
-/** Tuned for GLB spine meshes in millimeter world units. */
+/** Authored preset values from the standalone N2B material test. */
 const N2B_PRESET = {
   roughness: 0.42,
   clearcoat: 0.18,
@@ -16,19 +16,27 @@ const N2B_PRESET = {
   sheenRoughness: 0.72,
   pores: 0.22,
   warmth: 0.25,
-  fineScale: 0.003,
-  microScale: 0.012,
+  fineScale: 0.28,
+  microScale: 1.08,
   poreDarkness: 0.28,
 } as const;
+
+const noiseUniforms = {
+  uFineScale: { value: N2B_PRESET.fineScale as number },
+  uMicroScale: { value: N2B_PRESET.microScale as number },
+  uPores: { value: N2B_PRESET.pores as number },
+  uWarmth: { value: N2B_PRESET.warmth as number },
+  uPoreDarkness: { value: N2B_PRESET.poreDarkness as number },
+};
 
 let sharedMaterial: MeshPhysicalMaterial | null = null;
 
 function injectN2BShader(shader: N2BShader) {
-  shader.uniforms.uPores = { value: N2B_PRESET.pores };
-  shader.uniforms.uWarmth = { value: N2B_PRESET.warmth };
-  shader.uniforms.uFineScale = { value: N2B_PRESET.fineScale };
-  shader.uniforms.uMicroScale = { value: N2B_PRESET.microScale };
-  shader.uniforms.uPoreDarkness = { value: N2B_PRESET.poreDarkness };
+  shader.uniforms.uPores = noiseUniforms.uPores;
+  shader.uniforms.uWarmth = noiseUniforms.uWarmth;
+  shader.uniforms.uFineScale = noiseUniforms.uFineScale;
+  shader.uniforms.uMicroScale = noiseUniforms.uMicroScale;
+  shader.uniforms.uPoreDarkness = noiseUniforms.uPoreDarkness;
 
   shader.vertexShader = shader.vertexShader.replace(
     'void main() {',
@@ -118,8 +126,29 @@ export function createN2BBoneMaterial() {
   });
 
   material.onBeforeCompile = injectN2BShader;
-  material.customProgramCacheKey = () => 'n2b-bone-material-v2';
+  material.customProgramCacheKey = () => 'n2b-bone-material-v4';
   return material;
+}
+
+/** Match standalone noise density for GLB meshes regardless of unit scale. */
+export function configureN2BBoneNoiseScale(meshes: Mesh[]) {
+  if (meshes.length === 0) return;
+
+  const size = new Vector3();
+  let extentSum = 0;
+
+  for (const mesh of meshes) {
+    mesh.updateWorldMatrix(true, false);
+    const bounds = new Box3().setFromObject(mesh);
+    bounds.getSize(size);
+    extentSum += Math.max(size.x, size.y, size.z);
+  }
+
+  const avgExtent = extentSum / meshes.length;
+  const calibration = 1 / Math.max(avgExtent, 1);
+
+  noiseUniforms.uFineScale.value = N2B_PRESET.fineScale * calibration;
+  noiseUniforms.uMicroScale.value = N2B_PRESET.microScale * calibration;
 }
 
 /** Shared spine material — all vertebrae use the same instance and opacity. */
