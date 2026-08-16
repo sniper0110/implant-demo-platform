@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
-import { Box3, Vector3, type Group, type Material, type Mesh } from 'three';
+import { Box3, Vector3, type Group, type Mesh } from 'three';
 import type { ViewToggles } from '../types';
 import { classifySceneNode, LUMBAR_FUSION_GLB_URL } from './sceneAssetConfig';
 import { GlbSceneLayoutProvider, type GlbSceneLayout } from './GlbSceneLayoutContext';
 import { applyDefaultModelOrientation } from './glbOrientation';
-import { createN2BBoneMaterial } from './n2bBoneMaterial';
+import { getN2BBoneMaterial, setN2BBoneMaterialOpacity } from './n2bBoneMaterial';
 
 interface GlbLumbarSceneProps {
   toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
@@ -75,18 +75,6 @@ function collectGroupedMeshes(root: Group): GroupedMeshes {
   return grouped;
 }
 
-function applyMaterialOpacity(materials: Material | Material[] | undefined, opacity: number) {
-  if (!materials) return;
-
-  const list = Array.isArray(materials) ? materials : [materials];
-  for (const material of list) {
-    material.transparent = opacity < 1;
-    material.opacity = opacity;
-    material.depthWrite = opacity >= 0.05;
-    material.needsUpdate = true;
-  }
-}
-
 function setMeshesVisible(meshes: Mesh[], visible: boolean) {
   for (const mesh of meshes) {
     mesh.visible = visible;
@@ -94,11 +82,11 @@ function setMeshesVisible(meshes: Mesh[], visible: boolean) {
 }
 
 function applyN2BBoneMaterial(meshes: Mesh[]) {
+  const material = getN2BBoneMaterial();
   for (const mesh of meshes) {
-    mesh.geometry.computeVertexNormals();
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.material = createN2BBoneMaterial();
+    mesh.material = material;
   }
 }
 
@@ -159,9 +147,8 @@ function LumbarSceneModel({
   }, [root, layout, invalidate]);
 
   useEffect(() => {
-    for (const mesh of groupedMeshes.spine) {
-      applyMaterialOpacity(mesh.material, toggles.anatomyOpacity);
-    }
+    const material = getN2BBoneMaterial();
+    setN2BBoneMaterialOpacity(material, toggles.anatomyOpacity);
     invalidate();
   }, [groupedMeshes.spine, toggles.anatomyOpacity, invalidate]);
 

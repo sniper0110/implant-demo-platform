@@ -118,8 +118,6 @@ export function SceneLighting({ shadows = true }: { shadows?: boolean }) {
         shadow-mapSize={shadows ? [1024, 1024] : undefined}
       />
       <directionalLight position={[-4, 4, -3]} intensity={0.4} color="#8899bb" />
-      <directionalLight position={[-6, -4, 7]} intensity={1.8} color="#ffffff" />
-      <directionalLight position={[5, -7, 9]} intensity={1.35} color="#fff0cf" />
       <pointLight position={[0, 3, 2]} intensity={0.3} color={COLORS.gold} />
     </>
   );
