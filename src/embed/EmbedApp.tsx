@@ -152,10 +152,6 @@ export function EmbedApp() {
   const fullModelUrl = config
     ? resolveModelUrl(config.assetBaseUrl, config.releaseId, config.models.initial)
     : null;
-  const detailModelUrl =
-    !coarseDevice && config?.models.detail
-      ? resolveModelUrl(config.assetBaseUrl, config.releaseId, config.models.detail)
-      : undefined;
   const upgradeModelUrl =
     coarseDevice && fullModelUrl && fullModelUrl !== initialModelUrl ? fullModelUrl : undefined;
   const allowIdleUpgrade = Boolean(upgradeModelUrl && canUpgradeModelQuality());
@@ -349,7 +345,6 @@ export function EmbedApp() {
                 productId={activeStep.productId}
                 toggles={toggles}
                 modelUrl={sceneModelUrl}
-                detailModelUrl={detailModelUrl}
                 upgradeModelUrl={upgradeModelUrl}
                 allowIdleUpgrade={allowIdleUpgrade}
                 qualityTier={deviceTier}

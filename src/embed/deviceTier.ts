@@ -50,7 +50,6 @@ export interface DeviceTierResult {
   dprCap: number;
   shadows: boolean;
   antialias: boolean;
-  allowDetailModel: boolean;
   frameloop: 'always' | 'demand';
   reducedMotion: boolean;
 }
@@ -75,7 +74,6 @@ export function resolveDeviceTier(): DeviceTierResult {
       dprCap: lowMemory ? 1 : 1.25,
       shadows: false,
       antialias: !lowMemory,
-      allowDetailModel: false,
       // iOS Safari often fails to paint the first frame in demand mode inside iframes.
       frameloop: 'always',
       reducedMotion,
@@ -88,7 +86,6 @@ export function resolveDeviceTier(): DeviceTierResult {
       dprCap: 1,
       shadows: false,
       antialias: false,
-      allowDetailModel: false,
       frameloop: 'demand',
       reducedMotion,
     };
@@ -100,7 +97,6 @@ export function resolveDeviceTier(): DeviceTierResult {
       dprCap: 1.25,
       shadows: false,
       antialias: true,
-      allowDetailModel: !slowNetwork,
       frameloop: 'demand',
       reducedMotion,
     };
@@ -111,7 +107,6 @@ export function resolveDeviceTier(): DeviceTierResult {
     dprCap: Math.min(window.devicePixelRatio, 2),
     shadows: true,
     antialias: true,
-    allowDetailModel: !slowNetwork,
     frameloop: 'demand',
     reducedMotion,
   };

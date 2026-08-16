@@ -12,9 +12,7 @@ interface GlbLumbarSceneProps {
   sceneMode: SceneMode;
   toggles: Pick<ViewToggles, 'anatomyOpacity' | 'cage' | 'pedicleScrews'>;
   modelUrl?: string;
-  detailModelUrl?: string;
   upgradeModelUrl?: string;
-  allowDetailUpgrade?: boolean;
   allowIdleUpgrade?: boolean;
   onSceneLoaded?: () => void;
   onFirstFrame?: () => void;
@@ -207,9 +205,7 @@ export function GlbLumbarScene({
   sceneMode,
   toggles,
   modelUrl = LUMBAR_FUSION_GLB_URL,
-  detailModelUrl,
   upgradeModelUrl,
-  allowDetailUpgrade = false,
   allowIdleUpgrade = false,
   onSceneLoaded,
   onFirstFrame,
@@ -224,18 +220,6 @@ export function GlbLumbarScene({
     setUpgraded(false);
     firstFrameSeen.current = false;
   }, [modelUrl]);
-
-  useEffect(() => {
-    if (!allowDetailUpgrade || !detailModelUrl || upgraded) return;
-
-    const upgrade = () => {
-      setActiveUrl(detailModelUrl);
-      setUpgraded(true);
-    };
-
-    window.addEventListener('pointerdown', upgrade, { once: true });
-    return () => window.removeEventListener('pointerdown', upgrade);
-  }, [allowDetailUpgrade, detailModelUrl, upgraded]);
 
   const handleFirstFrame = () => {
     onFirstFrame?.();

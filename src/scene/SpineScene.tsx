@@ -19,7 +19,6 @@ interface SpineSceneProps {
   productId: ProductId;
   toggles: ViewToggles;
   modelUrl?: string;
-  detailModelUrl?: string;
   upgradeModelUrl?: string;
   allowIdleUpgrade?: boolean;
   qualityTier?: DeviceTierResult;
@@ -63,9 +62,7 @@ function LumbarSceneContent(props: SpineSceneProps) {
         sceneMode={props.sceneMode}
         toggles={props.toggles}
         modelUrl={props.modelUrl ?? LUMBAR_FUSION_GLB_URL}
-        detailModelUrl={props.detailModelUrl}
         upgradeModelUrl={props.upgradeModelUrl}
-        allowDetailUpgrade={quality?.allowDetailModel ?? false}
         allowIdleUpgrade={props.allowIdleUpgrade ?? false}
         onSceneLoaded={props.onSceneLoaded}
         onFirstFrame={props.onFirstFrame}
