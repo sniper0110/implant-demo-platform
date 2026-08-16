@@ -26,7 +26,6 @@ export function StoryProgress({
           type="button"
           className="story-nav-btn"
           onClick={onPrevious}
-          disabled={stepIndex === 0}
           aria-label="Previous step"
         >
           Back
@@ -43,7 +42,6 @@ export function StoryProgress({
           type="button"
           className="story-nav-btn"
           onClick={onNext}
-          disabled={stepIndex >= totalSteps - 1}
           aria-label="Next step"
         >
           Next

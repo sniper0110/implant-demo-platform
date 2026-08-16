@@ -19,7 +19,6 @@ interface SpineSceneProps {
   productId: ProductId;
   toggles: ViewToggles;
   modelUrl?: string;
-  detailModelUrl?: string;
   upgradeModelUrl?: string;
   allowIdleUpgrade?: boolean;
   qualityTier?: DeviceTierResult;
@@ -38,7 +37,14 @@ function LumbarGlbOverlays({ sceneMode, toggles }: Pick<SpineSceneProps, 'sceneM
 
   return (
     <>
-      <GlbCameraFit root={layout.root} sceneMode={sceneMode} focusMeshes={layout.focusMeshes} />
+      <GlbCameraFit
+        root={layout.root}
+        sceneMode={sceneMode}
+        focusMeshes={layout.focusMeshes}
+        anatomyOpacity={toggles.anatomyOpacity}
+        showCage={toggles.cage}
+        showPedicleScrews={toggles.pedicleScrews}
+      />
       <GlbSceneLabels sceneMode={sceneMode} visible={toggles.labels} />
     </>
   );
@@ -53,11 +59,10 @@ function LumbarSceneContent(props: SpineSceneProps) {
       <OrbitControls makeDefault enablePan enableZoom enableRotate maxPolarAngle={Math.PI} minPolarAngle={0} />
 
       <GlbLumbarScene
+        sceneMode={props.sceneMode}
         toggles={props.toggles}
         modelUrl={props.modelUrl ?? LUMBAR_FUSION_GLB_URL}
-        detailModelUrl={props.detailModelUrl}
         upgradeModelUrl={props.upgradeModelUrl}
-        allowDetailUpgrade={quality?.allowDetailModel ?? false}
         allowIdleUpgrade={props.allowIdleUpgrade ?? false}
         onSceneLoaded={props.onSceneLoaded}
         onFirstFrame={props.onFirstFrame}

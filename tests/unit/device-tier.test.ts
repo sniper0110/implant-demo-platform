@@ -27,7 +27,6 @@ describe('device tier', () => {
   it('caps unknown-memory coarse devices at medium tier', () => {
     const tier = resolveDeviceTier();
     expect(['low', 'medium']).toContain(tier.tier);
-    expect(tier.allowDetailModel).toBe(false);
     expect(tier.shadows).toBe(false);
     expect(tier.frameloop).toBe('always');
   });

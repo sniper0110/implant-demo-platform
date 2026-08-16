@@ -28,6 +28,12 @@ export function getSpineLabel(name: string): string {
   return name.replace(/\.stl$/i, '').toUpperCase();
 }
 
+/** Temporary test filter — only L4/L5 spine meshes are shown. */
+export function isL4OrL5SpineMesh(name: string): boolean {
+  const label = getSpineLabel(name);
+  return label === 'L4' || label === 'L5';
+}
+
 export const REQUIRED_MESH_PATTERNS = [
   /^l4/i,
   /^l5/i,

@@ -44,20 +44,6 @@ export const STORY_STEPS_BY_FAMILY: Record<ProductFamily, StoryStep[]> = {
       sceneMode: 'pedicle-system',
       productId: 'e3-f1',
     },
-    {
-      id: 'lumbar-complete',
-      title: 'Integrated Construct',
-      subtitle: 'Step 04 — Full Construct',
-      implantName: 'L4–L5 Fusion Construct',
-      anatomyLevel: 'L4–L5',
-      callouts: [
-        'Anterior interbody support',
-        'Posterior segmental fixation',
-        '360° stabilization concept',
-      ],
-      sceneMode: 'full-construct',
-      productId: 'solar-psi',
-    },
   ],
   'vertebral-augmentation': [
     {
@@ -125,4 +111,14 @@ export function getStorySteps(family: ProductFamily): StoryStep[] {
 
 export function getDefaultStepIndex(_family: ProductFamily): number {
   return 0;
+}
+
+export function getNextStepIndex(currentIndex: number, totalSteps: number): number {
+  if (totalSteps <= 0) return 0;
+  return (currentIndex + 1) % totalSteps;
+}
+
+export function getPreviousStepIndex(currentIndex: number, totalSteps: number): number {
+  if (totalSteps <= 0) return 0;
+  return (currentIndex - 1 + totalSteps) % totalSteps;
 }

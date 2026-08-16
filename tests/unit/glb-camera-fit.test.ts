@@ -3,10 +3,22 @@ import { PerspectiveCamera, Box3, Vector3, Mesh, BoxGeometry, MeshStandardMateri
 import { fitCameraToObjects, getCameraOffset } from '../../src/scene/cameraFitUtils';
 
 describe('glb camera fit', () => {
-  it('uses a posterior-elevated offset for full construct', () => {
-    const offset = getCameraOffset('full-construct', 10);
-    expect(offset.y).toBeGreaterThan(offset.x);
-    expect(offset.z).toBeGreaterThan(offset.x);
+  it('uses a left lateral-oblique offset for full construct', () => {
+    const offset = getCameraOffset('full-construct');
+    expect(offset.x).toBeLessThan(0);
+    expect(offset.y).toBeGreaterThan(0);
+    expect(offset.z).toBeGreaterThan(0);
+  });
+
+  it('uses an anterior-lateral offset for interbody cage', () => {
+    const offset = getCameraOffset('interbody-cage');
+    expect(offset.z).toBeGreaterThan(0);
+  });
+
+  it('uses a posterior-lateral offset for pedicle system', () => {
+    const offset = getCameraOffset('pedicle-system');
+    expect(offset.z).toBeLessThan(0);
+    expect(offset.x).toBeGreaterThan(0);
   });
 
   it('frames a horizontal bounding box', () => {

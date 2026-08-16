@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getStorySteps, getDefaultStepIndex } from '../data/story';
+import { getStorySteps, getDefaultStepIndex, getNextStepIndex, getPreviousStepIndex } from '../data/story';
 import type { ViewToggles } from '../types';
 import type { EmbedConfigResponse, EmbedLayout, EmbedRuntimeConfig } from './config';
 import { resolveInitialModelPath, resolveModelUrl, toPublicConfig } from './config';
@@ -152,10 +152,6 @@ export function EmbedApp() {
   const fullModelUrl = config
     ? resolveModelUrl(config.assetBaseUrl, config.releaseId, config.models.initial)
     : null;
-  const detailModelUrl =
-    !coarseDevice && config?.models.detail
-      ? resolveModelUrl(config.assetBaseUrl, config.releaseId, config.models.detail)
-      : undefined;
   const upgradeModelUrl =
     coarseDevice && fullModelUrl && fullModelUrl !== initialModelUrl ? fullModelUrl : undefined;
   const allowIdleUpgrade = Boolean(upgradeModelUrl && canUpgradeModelQuality());
@@ -280,11 +276,11 @@ export function EmbedApp() {
   );
 
   const handlePrevious = useCallback(() => {
-    handleStepChange(Math.max(0, activeStepIndex - 1));
-  }, [activeStepIndex, handleStepChange]);
+    handleStepChange(getPreviousStepIndex(activeStepIndex, storySteps.length));
+  }, [activeStepIndex, handleStepChange, storySteps.length]);
 
   const handleNext = useCallback(() => {
-    handleStepChange(Math.min(storySteps.length - 1, activeStepIndex + 1));
+    handleStepChange(getNextStepIndex(activeStepIndex, storySteps.length));
   }, [activeStepIndex, handleStepChange, storySteps.length]);
 
   const handleToggle = useCallback((key: keyof Pick<ViewToggles, 'cage' | 'pedicleScrews' | 'labels'>) => {
@@ -349,7 +345,6 @@ export function EmbedApp() {
                 productId={activeStep.productId}
                 toggles={toggles}
                 modelUrl={sceneModelUrl}
-                detailModelUrl={detailModelUrl}
                 upgradeModelUrl={upgradeModelUrl}
                 allowIdleUpgrade={allowIdleUpgrade}
                 qualityTier={deviceTier}
